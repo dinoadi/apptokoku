@@ -391,17 +391,24 @@ function AppContent() {
   const lowStockProducts = (products || []).filter(p => (Number(p.stock) || 0) <= 3);
   const stockValue = (products || []).reduce((acc, p) => acc + ((Number(p.cost_price || p.costPrice) || 0) * (Number(p.stock) || 0)), 0);
   
-  // Financial Calculations (Safe Reducers)
   const totalSalesPeriod = (filteredTransactions || []).reduce((acc, t) => acc + (Number(t.total) || 0), 0);
   const totalProfitPeriod = (filteredTransactions || []).reduce((acc, t) => acc + (Number(t.profit) || 0), 0);
   const totalItemsSoldPeriod = (filteredTransactions || []).reduce((acc, t) => 
     acc + (t.items || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)
   , 0);
   
-  // Cash on Hand (All Time) = Total Sales All Time - Total Expenses All Time
+  // Cash on Hand (All Time) = Total Sales - Total Profit - Stock Value - Total Expenses
+  // Formula: Modal Awal + Keuntungan - Keuntungan (Taken) - Stok + ...
+  // User Request: "Total Omzet - Keuntungan - Stok"
+  // Assuming "Keuntungan" means "Profit that is taken out" or "Gross Profit".
+  // And "Stok" is "Current Inventory Value".
+  // And we must also account for "Expenses" (Operational costs).
   const totalSalesAllTime = (transactions || []).reduce((acc, t) => acc + (Number(t.total) || 0), 0);
+  const totalProfitAllTime = (transactions || []).reduce((acc, t) => acc + (Number(t.profit) || 0), 0);
   const totalExpensesAllTime = (expenses || []).reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
-  const cashOnHand = totalSalesAllTime - totalExpensesAllTime;
+  
+  // Formula: Omzet - Keuntungan - Stok - Pengeluaran
+  const cashOnHand = totalSalesAllTime - totalProfitAllTime - stockValue - totalExpensesAllTime;
 
   const salesHistory7Days = useMemo(() => {
     return [...Array(7)].map((_, i) => {
