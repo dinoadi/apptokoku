@@ -944,76 +944,103 @@ function SendIcon() {
 
         {/* Receipt Modal */}
         {showReceipt && lastReceipt && (
-          <div className="fixed inset-0 z-[70] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-8 space-y-6 my-auto print:shadow-none print:p-0">
-              <div className="text-center space-y-2">
-                <h2 className="text-2xl font-black text-pink-500 tracking-tighter">{settings.storeName}</h2>
-                <p className="text-xs font-bold text-slate-500 leading-tight whitespace-pre-wrap">{settings.address}</p>
-                <p className="text-xs font-bold text-slate-500">Telp: {settings.phone}</p>
-              </div>
+          <div className="fixed inset-0 z-[70] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white print:static">
+            <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-8 space-y-6 my-auto print:shadow-none print:p-0 print:w-full print:max-w-none">
+              <style>{`
+                @media print {
+                  @page { margin: 0; size: auto; }
+                  body * { visibility: hidden; }
+                  .print-area, .print-area * { visibility: visible; }
+                  .print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+                  .no-print { display: none !important; }
+                }
+              `}</style>
               
-              <div className="border-t-2 border-dashed border-slate-100 pt-4 space-y-1">
-                <div className="flex justify-between text-[10px] font-bold text-slate-400">
-                  <span>No: {lastReceipt.invoice}</span>
-                  <span>{format(new Date(lastReceipt.date), 'dd/MM/yy HH:mm')}</span>
+              <div className="print-area space-y-6">
+                {/* Header */}
+                <div className="text-center space-y-1 pb-2">
+                  <h2 className="text-3xl font-black text-slate-800 tracking-tight uppercase">{settings.storeName}</h2>
+                  <p className="text-xs font-medium text-slate-500">{settings.address}</p>
+                  <p className="text-xs font-medium text-slate-500">Telp: {settings.phone}</p>
                 </div>
-                <div className="flex justify-between text-[10px] font-bold text-slate-400">
-                  <span>Kasir: Admin</span>
+                
+                {/* Info Transaksi */}
+                <div className="border-y-2 border-dashed border-slate-200 py-3 space-y-1">
+                  <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    <span>{lastReceipt.invoice}</span>
+                    <span>{format(new Date(lastReceipt.date), 'dd/MM/yy HH:mm')}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    <span>Kasir: Admin</span>
+                    <span>Pelanggan: Umum</span>
+                  </div>
                 </div>
-              </div>
 
-              <div className="border-t-2 border-dashed border-slate-100 pt-4 space-y-3">
-                {lastReceipt.items.map((item, i) => (
-                  <div key={i} className="text-xs font-bold">
-                    <div className="flex justify-between text-slate-800">
-                      <span>{item.name}</span>
-                      <span>Rp {((item.selling_price || item.sellingPrice || 0) * item.quantity).toLocaleString()}</span>
+                {/* Items */}
+                <div className="space-y-3 py-2">
+                  {(lastReceipt.items || []).map((item, i) => (
+                    <div key={i} className="text-xs font-bold text-slate-800">
+                      <div className="flex justify-between items-start mb-1">
+                        <span className="flex-1 pr-2">{item.name}</span>
+                        <span>Rp {((item.selling_price || item.sellingPrice || 0) * item.quantity).toLocaleString()}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-medium">
+                        {item.quantity} x @ Rp {(item.selling_price || item.sellingPrice || 0).toLocaleString()}
+                      </div>
                     </div>
-                    <div className="text-slate-400 text-[10px]">
-                      {item.quantity} x {(item.selling_price || item.sellingPrice || 0).toLocaleString()}
+                  ))}
+                </div>
+
+                {/* Total & Payment */}
+                <div className="border-t-2 border-dashed border-slate-200 pt-4 space-y-2">
+                  <div className="flex justify-between text-xs font-bold text-slate-500">
+                    <span>Subtotal</span>
+                    <span>Rp {(lastReceipt?.subtotal || 0).toLocaleString()}</span>
+                  </div>
+                  {(lastReceipt?.discount || 0) > 0 && (
+                    <div className="flex justify-between text-xs font-bold text-red-500">
+                      <span>Diskon</span>
+                      <span>- Rp {(lastReceipt?.discount || 0).toLocaleString()}</span>
                     </div>
+                  )}
+                  <div className="flex justify-between text-xl font-black text-slate-900 pt-2 border-t border-slate-100 mt-2">
+                    <span>TOTAL</span>
+                    <span>Rp {(lastReceipt?.total || 0).toLocaleString()}</span>
                   </div>
-                ))}
+                  
+                  <div className="grid grid-cols-2 gap-4 pt-4">
+                    <div className="text-left">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Bayar ({lastReceipt?.payment_method || lastReceipt?.paymentMethod || '-'})</p>
+                      <p className="font-black text-slate-800">Rp {(lastReceipt?.payment_amount || lastReceipt?.paymentAmount || 0).toLocaleString()}</p>
+                    </div>
+                    {(lastReceipt?.payment_method === 'Tunai' || lastReceipt?.paymentMethod === 'Tunai') && (
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Kembali</p>
+                        <p className="font-black text-slate-800">Rp {Math.max(0, (lastReceipt?.payment_amount || lastReceipt?.paymentAmount || 0) - (lastReceipt?.total || 0)).toLocaleString()}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="text-center pt-6 space-y-4">
+                  <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest leading-relaxed">
+                    {settings.receiptFooter}
+                    <br />
+                    *** Simpan struk ini sebagai bukti pembayaran ***
+                  </p>
+                </div>
               </div>
 
-              <div className="border-t-2 border-dashed border-slate-100 pt-4 space-y-2">
-                <div className="flex justify-between text-xs font-bold text-slate-500">
-                  <span>Subtotal</span>
-                  <span>Rp {(lastReceipt?.subtotal || 0).toLocaleString()}</span>
-                </div>
-                {(lastReceipt?.discount || 0) > 0 && (
-                  <div className="flex justify-between text-xs font-bold text-red-500">
-                    <span>Diskon</span>
-                    <span>- Rp {(lastReceipt?.discount || 0).toLocaleString()}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-lg font-black text-slate-800">
-                  <span>TOTAL</span>
-                  <span>Rp {(lastReceipt?.total || 0).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-xs font-bold text-slate-500">
-                  <span>Bayar ({lastReceipt?.payment_method || lastReceipt?.paymentMethod || '-'})</span>
-                  <span>Rp {(lastReceipt?.payment_amount || lastReceipt?.paymentAmount || 0).toLocaleString()}</span>
-                </div>
-                {(lastReceipt?.payment_method === 'Tunai' || lastReceipt?.paymentMethod === 'Tunai') && (
-                  <div className="flex justify-between text-xs font-bold text-green-500">
-                    <span>Kembali</span>
-                    <span>Rp {Math.max(0, (lastReceipt?.payment_amount || lastReceipt?.paymentAmount || 0) - (lastReceipt?.total || 0)).toLocaleString()}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="text-center pt-6 space-y-4 print:hidden">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{settings.receiptFooter}</p>
-                <div className="flex gap-2">
-                  <button onClick={() => window.print()} className="flex-1 bg-slate-900 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-3 hover:bg-black transition-all shadow-lg shadow-slate-200 uppercase tracking-widest">
-                    <Printer size={18} />
-                    CETAK STRUK
-                  </button>
-                  <button onClick={() => setShowReceipt(false)} className="flex-1 bg-white border-2 border-slate-100 text-slate-400 py-4 rounded-2xl font-black text-sm hover:bg-slate-50 transition-all uppercase tracking-widest">
-                    TUTUP
-                  </button>
-                </div>
+              {/* Actions (Hidden on Print) */}
+              <div className="flex gap-2 no-print pt-4">
+                <button onClick={() => window.print()} className="flex-1 bg-slate-900 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-3 hover:bg-black transition-all shadow-lg shadow-slate-200 uppercase tracking-widest">
+                  <Printer size={18} />
+                  CETAK STRUK
+                </button>
+                <button onClick={() => setShowReceipt(false)} className="flex-1 bg-white border-2 border-slate-100 text-slate-400 py-4 rounded-2xl font-black text-sm hover:bg-slate-50 transition-all uppercase tracking-widest">
+                  TUTUP
+                </button>
               </div>
             </div>
           </div>
