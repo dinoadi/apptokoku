@@ -407,8 +407,10 @@ function AppContent() {
   const totalProfitAllTime = (transactions || []).reduce((acc, t) => acc + (Number(t.profit) || 0), 0);
   const totalExpensesAllTime = (expenses || []).reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
   
-  // Formula: Omzet - Keuntungan - Stok - Pengeluaran
-  const cashOnHand = totalSalesAllTime - totalProfitAllTime - stockValue - totalExpensesAllTime;
+  // Formula: (Omzet - Keuntungan) - Pengeluaran
+  // Interpretation: "Nilai Modal/Stok" in user's request refers to the calculated Cost of Goods Sold (Omzet - Profit).
+  // "Dikurangi catatan pengeluaran" refers to subtracting operational expenses from that capital.
+  const cashOnHand = (totalSalesAllTime - totalProfitAllTime) - totalExpensesAllTime;
 
   const salesHistory7Days = useMemo(() => {
     return [...Array(7)].map((_, i) => {
