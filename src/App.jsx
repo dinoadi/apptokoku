@@ -355,9 +355,11 @@ function AppContent() {
       end = endOfDay(now);
     }
     
-    return transactions.filter(t => 
-      isWithinInterval(new Date(t.date), { start, end })
-    );
+    return (transactions || []).filter(t => {
+      if (!t.date) return false;
+      const d = new Date(t.date);
+      return !isNaN(d.getTime()) && isWithinInterval(d, { start, end });
+    });
   }, [transactions, reportFilter]);
 
   const filteredExpenses = useMemo(() => {
@@ -375,14 +377,18 @@ function AppContent() {
       end = endOfDay(now);
     }
     
-    return (expenses || []).filter(e => 
-      e.date && isWithinInterval(new Date(e.date), { start, end })
-    );
+    return (expenses || []).filter(e => {
+      if (!e.date) return false;
+      const d = new Date(e.date);
+      return !isNaN(d.getTime()) && isWithinInterval(d, { start, end });
+    });
   }, [expenses, reportFilter]);
 
-  const todayTransactions = (transactions || []).filter(t => 
-    t.date && isWithinInterval(new Date(t.date), { start: startOfDay(new Date()), end: endOfDay(new Date()) })
-  );
+  const todayTransactions = (transactions || []).filter(t => {
+    if (!t.date) return false;
+    const d = new Date(t.date);
+    return !isNaN(d.getTime()) && isWithinInterval(d, { start: startOfDay(new Date()), end: endOfDay(new Date()) });
+  });
   
   const todaySales = todayTransactions.reduce((acc, t) => acc + (Number(t.total) || 0), 0);
   const lowStockProducts = (products || []).filter(p => (Number(p.stock) || 0) <= 3);
