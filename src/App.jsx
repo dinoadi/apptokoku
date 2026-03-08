@@ -875,6 +875,19 @@ function SendIcon() {
           <div className="grid lg:grid-cols-12 gap-6 animate-in fade-in duration-300 pb-24 md:pb-0">
             {/* Left Column: Products (lg:8) */}
             <div className="lg:col-span-7 xl:col-span-8 space-y-4">
+              <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                 <h3 className="font-black text-slate-800 text-lg md:text-xl flex items-center gap-2">
+                    <ShoppingCart size={24} className="text-pink-500" />
+                    Kasir
+                 </h3>
+                 <button 
+                  onClick={() => setIsExpenseModalOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-all text-xs md:text-sm"
+                >
+                  <MinusCircle size={18} /> Catat Pengeluaran
+                </button>
+              </div>
+
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -1519,58 +1532,6 @@ function SendIcon() {
                 </div>
               </div>
 
-            {/* Expense Modal */}
-            {isExpenseModalOpen && (
-              <div className="fixed inset-0 z-[70] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-                <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 md:p-8 space-y-4 my-auto">
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-xl md:text-2xl font-black text-slate-800">Catat Pengeluaran</h3>
-                    <button onClick={() => setIsExpenseModalOpen(false)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl">
-                      <X size={20} />
-                    </button>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Deskripsi</label>
-                      <input
-                        className="w-full p-3 bg-slate-50 rounded-xl border-2 border-transparent focus:border-pink-500 outline-none font-bold"
-                        value={newExpense.description}
-                        onChange={(e) => setNewExpense({...newExpense, description: e.target.value})}
-                        placeholder="Contoh: Beli Token Listrik / Beli Daster Baru"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Jumlah (Rp)</label>
-                      <input
-                        type="number"
-                        className="w-full p-3 bg-slate-50 rounded-xl border-2 border-transparent focus:border-pink-500 outline-none font-bold"
-                        value={newExpense.amount}
-                        onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
-                        placeholder="0"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Kategori</label>
-                      <select
-                        className="w-full p-3 bg-slate-50 rounded-xl border-2 border-transparent focus:border-pink-500 outline-none font-bold appearance-none"
-                        value={newExpense.category}
-                        onChange={(e) => setNewExpense({...newExpense, category: e.target.value})}
-                      >
-                        <option value="Operasional">Operasional (Listrik, Air, Bensin)</option>
-                        <option value="Restock">Belanja Barang (Restock)</option>
-                        <option value="Lainnya">Lainnya</option>
-                      </select>
-                    </div>
-                    <button
-                      onClick={handleSaveExpense}
-                      className="w-full py-4 bg-pink-500 hover:bg-pink-600 text-white rounded-2xl font-black shadow-lg shadow-pink-200 uppercase tracking-widest mt-4"
-                    >
-                      SIMPAN PENGELUARAN
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -1717,6 +1678,60 @@ function SendIcon() {
           ))}
         </div>
       </nav>
+
+      {/* Expense Modal - Global */}
+      {isExpenseModalOpen && (
+              <div className="fixed inset-0 z-[120] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+                <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 md:p-8 space-y-4 my-auto">
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-xl md:text-2xl font-black text-slate-800">Catat Pengeluaran</h3>
+                    <button onClick={() => setIsExpenseModalOpen(false)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl">
+                      <X size={20} />
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Deskripsi</label>
+                      <input
+                        className="w-full p-3 bg-slate-50 rounded-xl border-2 border-transparent focus:border-pink-500 outline-none font-bold"
+                        value={newExpense.description}
+                        onChange={(e) => setNewExpense({...newExpense, description: e.target.value})}
+                        placeholder="Contoh: Beli Token Listrik / Beli Daster Baru"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Jumlah (Rp)</label>
+                      <input
+                        type="number"
+                        className="w-full p-3 bg-slate-50 rounded-xl border-2 border-transparent focus:border-pink-500 outline-none font-bold"
+                        value={newExpense.amount}
+                        onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Kategori</label>
+                      <select
+                        className="w-full p-3 bg-slate-50 rounded-xl border-2 border-transparent focus:border-pink-500 outline-none font-bold appearance-none"
+                        value={newExpense.category}
+                        onChange={(e) => setNewExpense({...newExpense, category: e.target.value})}
+                      >
+                        <option value="Operasional">Operasional (Listrik, Air, Bensin)</option>
+                        <option value="Restock">Belanja Barang (Restock)</option>
+                        <option value="Lainnya">Lainnya</option>
+                      </select>
+                    </div>
+                    <button
+                      onClick={handleSaveExpense}
+                      className="w-full py-4 bg-pink-500 hover:bg-pink-600 text-white rounded-2xl font-black shadow-lg shadow-pink-200 uppercase tracking-widest mt-4"
+                    >
+                      SIMPAN PENGELUARAN
+                    </button>
+                  </div>
+                </div>
+              </div>
+      )}
+
       </div>
     </div>
   );
