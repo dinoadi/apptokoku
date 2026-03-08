@@ -79,10 +79,7 @@ function AppContent() {
   });
 
   const [isLoading, setIsLoading] = useState(true);
-  const [expenses, setExpenses] = useState([]);
-  const [historyData, setHistoryData] = useState([]); // Unified transactions and expenses
-  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
-  const [newExpense, setNewExpense] = useState({ description: '', amount: '', category: 'Operasional' });
+  const [expenses, setExpenses] = useState([]); // Kept to avoid undefined errors in existing code
 
   // --- Fetch Data from Supabase ---
   const fetchData = async () => {
@@ -97,17 +94,10 @@ function AppContent() {
       const { data: expData } = await supabase.from('expenses').select('*').order('date', { ascending: false });
       setExpenses(expData || []);
       
-      // Combine transactions and expenses for history
-      const combined = [
-        ...(transData || []).map(t => ({ ...t, type: 'income' })),
-        ...(expData || []).map(e => ({ ...e, type: 'expense', invoice: 'EXP', items: [{ name: e.description }], total: e.amount }))
-      ].sort((a, b) => new Date(b.date) - new Date(a.date));
-      setHistoryData(combined);
-      
-      const { data: settsData } = await supabase.from('settings').select('*').single();
-      
       // Collect unique categories from products
       const productCategories = new Set((prodData || []).map(p => p.category).filter(Boolean));
+      
+      const { data: settsData } = await supabase.from('settings').select('*').single();
       
       if (settsData) {
         setSettings(settsData);
@@ -128,32 +118,8 @@ function AppContent() {
       // Fallback to empty arrays on error to prevent crash
       setProducts(prev => prev || []);
       setTransactions(prev => prev || []);
-      setExpenses(prev => prev || []);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleSaveExpense = async () => {
-    if (!newExpense.description || !newExpense.amount) {
-      alert('Deskripsi dan Jumlah harus diisi');
-      return;
-    }
-
-    const expenseData = {
-      description: newExpense.description,
-      amount: Number(newExpense.amount),
-      category: newExpense.category,
-      date: new Date().toISOString()
-    };
-
-    const { error } = await supabase.from('expenses').insert([expenseData]);
-    if (error) {
-      alert('Gagal simpan pengeluaran: ' + error.message);
-    } else {
-      setNewExpense({ description: '', amount: '', category: 'Operasional' });
-      setIsExpenseModalOpen(false);
-      fetchData();
     }
   };
 
@@ -379,25 +345,7 @@ function AppContent() {
   }, [transactions, reportFilter]);
 
   const filteredExpenses = useMemo(() => {
-    const now = new Date();
-    let start, end;
-    
-    if (reportFilter === 'today') {
-      start = startOfDay(now);
-      end = endOfDay(now);
-    } else if (reportFilter === '7days') {
-      start = startOfDay(subDays(now, 6));
-      end = endOfDay(now);
-    } else if (reportFilter === 'thismonth') {
-      start = new Date(now.getFullYear(), now.getMonth(), 1);
-      end = endOfDay(now);
-    }
-    
-    return (expenses || []).filter(e => {
-      if (!e.date) return false;
-      const d = new Date(e.date);
-      return !isNaN(d.getTime()) && isWithinInterval(d, { start, end });
-    });
+    return []; // Disable expenses filtering logic
   }, [expenses, reportFilter]);
 
   const todayTransactions = (transactions || []).filter(t => {
@@ -416,7 +364,6 @@ function AppContent() {
   const totalItemsSoldPeriod = (filteredTransactions || []).reduce((acc, t) => 
     acc + (t.items || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)
   , 0);
-  const totalExpensesPeriod = (filteredExpenses || []).reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
   
   // Cash on Hand (All Time) = Total Sales All Time - Total Expenses All Time
   const totalSalesAllTime = (transactions || []).reduce((acc, t) => acc + (Number(t.total) || 0), 0);
@@ -620,7 +567,7 @@ function SendIcon() {
               </div>
             </div>
 
-            {/* Quick Actions - Add Expense Here */}
+            {/* Quick Actions - Add Product Only */}
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-black text-slate-800">Menu Cepat</h3>
@@ -632,12 +579,6 @@ function SendIcon() {
                   className="flex items-center gap-2 px-4 py-2 bg-pink-50 text-pink-600 rounded-xl font-bold hover:bg-pink-100 transition-all text-xs md:text-sm"
                 >
                   <Plus size={16} /> Tambah Produk
-                </button>
-                <button 
-                  onClick={() => setIsExpenseModalOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-all text-xs md:text-sm"
-                >
-                  <MinusCircle size={16} /> Catat Pengeluaran
                 </button>
               </div>
             </div>
@@ -900,12 +841,6 @@ function SendIcon() {
                     <ShoppingCart size={24} className="text-pink-500" />
                     Kasir
                  </h3>
-                 <button 
-                  onClick={() => setIsExpenseModalOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-all text-xs md:text-sm"
-                >
-                  <MinusCircle size={18} /> Catat Pengeluaran
-                </button>
               </div>
 
               <div className="flex gap-2">
@@ -1343,51 +1278,36 @@ function SendIcon() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {historyData.map(t => (
-                      <tr key={`${t.type}-${t.id}`} className="hover:bg-slate-50/50 transition-colors group">
+                    {transactions.map(t => (
+                      <tr key={t.id} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-8 py-6">
                           <div className="flex flex-col">
-                            {t.type === 'expense' ? (
-                                <span className="font-black text-red-500 text-sm uppercase tracking-tighter">PENGELUARAN</span>
-                            ) : (
-                                <span className="font-black text-slate-800 text-sm uppercase tracking-tighter">{t.invoice}</span>
-                            )}
+                            <span className="font-black text-slate-800 text-sm uppercase tracking-tighter">{t.invoice}</span>
                             <span className="text-[10px] font-bold text-slate-400 uppercase">{format(new Date(t.date), 'dd MMM yyyy, HH:mm')}</span>
                           </div>
                         </td>
                         <td className="px-8 py-6">
                           <div className="flex flex-col">
-                            {t.type === 'expense' ? (
-                                <span className="font-bold text-slate-600">{t.category}</span>
-                            ) : (
-                                <span className="font-bold text-slate-600">{t.items.length} Item</span>
-                            )}
+                            <span className="font-bold text-slate-600">{t.items.length} Item</span>
                             <span className="text-[10px] text-slate-400 font-bold truncate max-w-[150px]">
-                                {t.type === 'expense' ? t.description : t.items.map(i => i.name).join(', ')}
+                                {t.items.map(i => i.name).join(', ')}
                             </span>
                           </div>
                         </td>
-                        <td className={`px-8 py-6 font-black ${t.type === 'expense' ? 'text-red-500' : 'text-slate-800'}`}>
-                            {t.type === 'expense' ? '- ' : ''}Rp {(t.total || t.amount || 0).toLocaleString()}
+                        <td className="px-8 py-6 font-black text-slate-800">
+                            Rp {(t.total || 0).toLocaleString()}
                         </td>
                         <td className="px-8 py-6">
-                          {t.type === 'expense' ? (
-                              <span className="px-3 py-1 bg-red-50 text-red-500 rounded-lg text-[10px] font-black uppercase">KELUAR</span>
-                          ) : (
-                              <span className="px-3 py-1 bg-blue-50 text-blue-500 rounded-lg text-[10px] font-black uppercase">{t.payment_method || t.paymentMethod}</span>
-                          )}
+                          <span className="px-3 py-1 bg-blue-50 text-blue-500 rounded-lg text-[10px] font-black uppercase">{t.payment_method || t.paymentMethod}</span>
                         </td>
                         <td className="px-8 py-6">
                           <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                            {t.type !== 'expense' && (
-                                <button onClick={() => { setLastReceipt(t); setShowReceipt(true); }} className="p-2 text-slate-300 hover:text-pink-500 transition-all">
-                                  <Printer size={18} />
-                                </button>
-                            )}
+                            <button onClick={() => { setLastReceipt(t); setShowReceipt(true); }} className="p-2 text-slate-300 hover:text-pink-500 transition-all">
+                              <Printer size={18} />
+                            </button>
                             <button onClick={async () => {
-                              if (window.confirm('Hapus data ini?')) {
-                                const table = t.type === 'expense' ? 'expenses' : 'transactions';
-                                const { error } = await supabase.from(table).delete().eq('id', t.id);
+                              if (window.confirm('Hapus transaksi ini?')) {
+                                const { error } = await supabase.from('transactions').delete().eq('id', t.id);
                                 if (error) alert('Gagal hapus: ' + error.message);
                                 else fetchData();
                               }
@@ -1398,9 +1318,9 @@ function SendIcon() {
                         </td>
                       </tr>
                     ))}
-                    {historyData.length === 0 && (
+                    {transactions.length === 0 && (
                       <tr>
-                        <td colSpan="5" className="text-center py-20 text-slate-400 font-bold">Belum ada riwayat transaksi/pengeluaran.</td>
+                        <td colSpan="5" className="text-center py-20 text-slate-400 font-bold">Belum ada riwayat transaksi.</td>
                       </tr>
                     )}
                   </tbody>
@@ -1410,50 +1330,33 @@ function SendIcon() {
 
             {/* Mobile Cards */}
             <div className="md:hidden space-y-3 pb-20">
-              {historyData.map(t => (
-                <div key={`${t.type}-${t.id}`} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-3">
+              {transactions.map(t => (
+                <div key={t.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-3">
                   <div className="flex justify-between items-start">
                     <div className="flex flex-col">
-                      {t.type === 'expense' ? (
-                        <span className="font-black text-red-500 text-xs uppercase">PENGELUARAN</span>
-                      ) : (
-                        <span className="font-black text-slate-800 text-xs uppercase">{t.invoice}</span>
-                      )}
+                      <span className="font-black text-slate-800 text-xs uppercase">{t.invoice}</span>
                       <span className="text-[10px] font-bold text-slate-400">{t.date ? format(new Date(t.date), 'dd/MM/yy HH:mm') : '-'}</span>
                     </div>
-                    {t.type === 'expense' ? (
-                        <span className="bg-red-50 text-red-500 text-[9px] font-black px-2 py-0.5 rounded-lg uppercase">KELUAR</span>
-                    ) : (
-                        <span className="bg-blue-50 text-blue-500 text-[9px] font-black px-2 py-0.5 rounded-lg uppercase">{t.payment_method || t.paymentMethod}</span>
-                    )}
+                    <span className="bg-blue-50 text-blue-500 text-[9px] font-black px-2 py-0.5 rounded-lg uppercase">{t.payment_method || t.paymentMethod}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <div className="text-[10px] font-bold text-slate-500">
-                      {t.type === 'expense' ? (
-                         <span className="text-red-400">{t.description}</span>
-                      ) : (
-                         <>{(t.items || []).length} Item • {(t.items && t.items[0]) ? t.items[0].name : 'Item'} {(t.items || []).length > 1 ? '...' : ''}</>
-                      )}
+                      {(t.items || []).length} Item • {(t.items && t.items[0]) ? t.items[0].name : 'Item'} {(t.items || []).length > 1 ? '...' : ''}
                     </div>
-                    <span className={`font-black text-sm ${t.type === 'expense' ? 'text-red-500' : 'text-slate-800'}`}>
-                        {t.type === 'expense' ? '- ' : ''}Rp {(t.total || t.amount || 0).toLocaleString()}
-                    </span>
+                    <span className="font-black text-slate-800 text-sm">Rp {(t.total || 0).toLocaleString()}</span>
                   </div>
                   <div className="flex gap-2 pt-2 border-t border-slate-50">
-                    {t.type !== 'expense' && (
-                        <button 
-                          onClick={() => { setLastReceipt(t); setShowReceipt(true); }}
-                          className="flex-1 flex items-center justify-center gap-2 py-2 bg-pink-50 text-pink-500 rounded-xl text-[10px] font-black"
-                        >
-                          <Printer size={14} />
-                          CETAK STRUK
-                        </button>
-                    )}
+                    <button 
+                      onClick={() => { setLastReceipt(t); setShowReceipt(true); }}
+                      className="flex-1 flex items-center justify-center gap-2 py-2 bg-pink-50 text-pink-500 rounded-xl text-[10px] font-black"
+                    >
+                      <Printer size={14} />
+                      CETAK STRUK
+                    </button>
                     <button 
                       onClick={async () => {
-                        if (window.confirm('Hapus data ini?')) {
-                          const table = t.type === 'expense' ? 'expenses' : 'transactions';
-                          const { error } = await supabase.from(table).delete().eq('id', t.id);
+                        if (window.confirm('Hapus transaksi ini?')) {
+                          const { error } = await supabase.from('transactions').delete().eq('id', t.id);
                           if (error) alert('Gagal hapus: ' + error.message);
                           else fetchData();
                         }
@@ -1465,7 +1368,7 @@ function SendIcon() {
                   </div>
                 </div>
               ))}
-              {historyData.length === 0 && <p className="text-center py-10 text-slate-400 font-bold text-sm">Belum ada riwayat transaksi/pengeluaran.</p>}
+              {transactions.length === 0 && <p className="text-center py-10 text-slate-400 font-bold text-sm">Belum ada riwayat transaksi.</p>}
             </div>
           </div>
         )}
@@ -1505,149 +1408,24 @@ function SendIcon() {
                 <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {totalSalesPeriod.toLocaleString()}</h4>
               </div>
 
-              {/* Card Laba Bersih */}
+              {/* Card Produk Terjual */}
               <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-                <div className="w-12 h-12 md:w-16 md:h-16 bg-blue-50 text-blue-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
-                  <Percent size={28} />
-                </div>
-                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Laba Bersih</p>
-                <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {totalProfitPeriod.toLocaleString()}</h4>
-              </div>
-
-              {/* Card Pengeluaran */}
-              <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-                <div className="w-12 h-12 md:w-16 md:h-16 bg-red-50 text-red-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
-                  <ArrowDownCircle size={28} />
-                </div>
-                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Pengeluaran</p>
-                <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {totalExpensesPeriod.toLocaleString()}</h4>
-              </div>
-
-              {/* Card Cash on Hand */}
-              <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center ring-4 ring-pink-50">
                 <div className="w-12 h-12 md:w-16 md:h-16 bg-pink-50 text-pink-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
-                  <Wallet size={28} />
+                  <Package size={28} />
                 </div>
-                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Cash on Hand</p>
-                <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {cashOnHand.toLocaleString()}</h4>
-                <p className="text-[9px] text-slate-400 mt-1">(Total Sepanjang Waktu)</p>
+                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Produk Terjual</p>
+                <h4 className="text-xl md:text-3xl font-black text-slate-800">{totalItemsSoldPeriod} Pcs</h4>
+              </div>
+
+              {/* Card Transaksi */}
+              <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-amber-50 text-amber-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
+                  <History size={28} />
+                </div>
+                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Transaksi</p>
+                <h4 className="text-xl md:text-3xl font-black text-slate-800">{filteredTransactions.length} Data</h4>
               </div>
             </div>
-
-            {/* Chart Section */}
-            <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm mb-8">
-              <h3 className="text-lg md:text-xl font-black text-slate-800 mb-6 flex items-center gap-3">
-                <TrendingUp size={20} className="text-pink-500" />
-                Grafik Keuangan (7 Hari Terakhir)
-              </h3>
-              <div className="h-64 flex items-end justify-between gap-2 md:gap-4 px-2">
-                {salesHistory7Days.map((day, i) => {
-                   const dayExpenses = (expenses || [])
-                    .filter(e => {
-                      if (!e.date) return false;
-                      const d = new Date(e.date);
-                      // Compare same day
-                      const targetDate = subDays(new Date(), 6 - i);
-                      return !isNaN(d.getTime()) && isWithinInterval(d, { start: startOfDay(targetDate), end: endOfDay(targetDate) });
-                    })
-                    .reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
-                    
-                   const maxVal = Math.max(
-                     ...salesHistory7Days.map(d => d.value), 
-                     ...[...Array(7)].map((_, idx) => {
-                        const targetDate = subDays(new Date(), 6 - idx);
-                        return (expenses || [])
-                          .filter(e => e.date && isWithinInterval(new Date(e.date), { start: startOfDay(targetDate), end: endOfDay(targetDate) }))
-                          .reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
-                     }),
-                     1
-                   );
-                   
-                   const heightIncome = (day.value / maxVal) * 100;
-                   const heightExpense = (dayExpenses / maxVal) * 100;
-
-                   return (
-                     <div key={i} className="flex-1 flex flex-col justify-end items-center gap-2 group h-full">
-                       <div className="w-full flex gap-1 items-end justify-center h-full">
-                         {/* Income Bar */}
-                         <div 
-                           style={{ height: `${heightIncome}%` }} 
-                           className="w-1/2 max-w-[20px] bg-green-400 rounded-t-md relative group-hover:opacity-80 transition-all"
-                         >
-                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[8px] py-1 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 whitespace-nowrap pointer-events-none">
-                              +{day.value.toLocaleString()}
-                            </div>
-                         </div>
-                         {/* Expense Bar */}
-                         <div 
-                           style={{ height: `${heightExpense}%` }} 
-                           className="w-1/2 max-w-[20px] bg-red-400 rounded-t-md relative group-hover:opacity-80 transition-all"
-                         >
-                            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[8px] py-1 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 whitespace-nowrap pointer-events-none">
-                              -{dayExpenses.toLocaleString()}
-                            </div>
-                         </div>
-                       </div>
-                       <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{day.label}</span>
-                     </div>
-                   );
-                })}
-              </div>
-              <div className="flex justify-center gap-6 mt-6">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-green-400 rounded-full"></div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase">Pemasukan</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-red-400 rounded-full"></div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase">Pengeluaran</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm">
-                <h3 className="text-lg md:text-xl font-black text-slate-800 mb-6 md:mb-8 flex items-center gap-3">
-                  <FileText size={20} className="text-pink-500" />
-                  Detail Analisis Laba Rugi ({reportFilter === 'today' ? 'Hari Ini' : reportFilter === '7days' ? '7 Hari' : 'Bulan Ini'})
-                </h3>
-                <div className="space-y-4 md:space-y-6">
-                  <div className="flex justify-between items-center p-4 md:p-6 bg-slate-50 rounded-2xl md:rounded-3xl border border-slate-100">
-                    <div>
-                      <p className="font-black text-slate-800 text-sm md:text-base">Modal Barang (Stok)</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Total nilai beli seluruh stok saat ini</p>
-                    </div>
-                    <span className="text-base md:text-xl font-black text-amber-600">Rp {stockValue.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-4 md:p-6 bg-slate-50 rounded-2xl md:rounded-3xl border border-slate-100">
-                    <div>
-                      <p className="font-black text-slate-800 text-sm md:text-base">Total Penjualan</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Uang masuk dalam periode terpilih</p>
-                    </div>
-                    <span className="text-base md:text-xl font-black text-blue-500">Rp {totalSalesPeriod.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-4 md:p-6 bg-slate-50 rounded-2xl md:rounded-3xl border border-slate-100">
-                    <div>
-                      <p className="font-black text-slate-800 text-sm md:text-base">Modal Terjual (HPP)</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Biaya beli barang laku periode terpilih</p>
-                    </div>
-                    <span className="text-base md:text-xl font-black text-red-400">Rp {(totalSalesPeriod - totalProfitPeriod).toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-4 md:p-6 bg-slate-50 rounded-2xl md:rounded-3xl border border-slate-100">
-                    <div>
-                      <p className="font-black text-slate-800 text-sm md:text-base">Pengeluaran Operasional</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Biaya operasional periode terpilih</p>
-                    </div>
-                    <span className="text-base md:text-xl font-black text-red-500">Rp {totalExpensesPeriod.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-6 md:p-8 bg-pink-500 text-white rounded-[30px] md:rounded-[40px] shadow-xl shadow-pink-100">
-                    <div>
-                      <p className="text-xl md:text-2xl font-black">Laba Bersih Periode</p>
-                      <p className="text-[10px] opacity-80 font-bold uppercase tracking-widest">Keuntungan murni (Omzet - HPP - Pengeluaran)</p>
-                    </div>
-                    <span className="text-2xl md:text-4xl font-black">Rp {(totalProfitPeriod - totalExpensesPeriod).toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
           </div>
         )}
 
@@ -1794,60 +1572,6 @@ function SendIcon() {
           ))}
         </div>
       </nav>
-
-      {/* Expense Modal - Global */}
-      {isExpenseModalOpen && (
-              <div className="fixed inset-0 z-[120] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-                <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 md:p-8 space-y-4 my-auto">
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-xl md:text-2xl font-black text-slate-800">Catat Pengeluaran</h3>
-                    <button onClick={() => setIsExpenseModalOpen(false)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl">
-                      <X size={20} />
-                    </button>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Deskripsi</label>
-                      <input
-                        className="w-full p-3 bg-slate-50 rounded-xl border-2 border-transparent focus:border-pink-500 outline-none font-bold"
-                        value={newExpense.description}
-                        onChange={(e) => setNewExpense({...newExpense, description: e.target.value})}
-                        placeholder="Contoh: Beli Token Listrik / Beli Daster Baru"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Jumlah (Rp)</label>
-                      <input
-                        type="number"
-                        className="w-full p-3 bg-slate-50 rounded-xl border-2 border-transparent focus:border-pink-500 outline-none font-bold"
-                        value={newExpense.amount}
-                        onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
-                        placeholder="0"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Kategori</label>
-                      <select
-                        className="w-full p-3 bg-slate-50 rounded-xl border-2 border-transparent focus:border-pink-500 outline-none font-bold appearance-none"
-                        value={newExpense.category}
-                        onChange={(e) => setNewExpense({...newExpense, category: e.target.value})}
-                      >
-                        <option value="Operasional">Operasional (Listrik, Air, Bensin)</option>
-                        <option value="Restock">Belanja Barang (Restock)</option>
-                        <option value="Lainnya">Lainnya</option>
-                      </select>
-                    </div>
-                    <button
-                      onClick={handleSaveExpense}
-                      className="w-full py-4 bg-pink-500 hover:bg-pink-600 text-white rounded-2xl font-black shadow-lg shadow-pink-200 uppercase tracking-widest mt-4"
-                    >
-                      SIMPAN PENGELUARAN
-                    </button>
-                  </div>
-                </div>
-              </div>
-      )}
-
       </div>
     </div>
   );
