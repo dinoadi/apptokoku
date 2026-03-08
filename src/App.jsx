@@ -371,31 +371,30 @@ function AppContent() {
       end = endOfDay(now);
     }
     
-    return expenses.filter(e => 
-      isWithinInterval(new Date(e.date), { start, end })
+    return (expenses || []).filter(e => 
+      e.date && isWithinInterval(new Date(e.date), { start, end })
     );
   }, [expenses, reportFilter]);
 
-  const todayTransactions = transactions.filter(t => 
-    isWithinInterval(new Date(t.date), { start: startOfDay(new Date()), end: endOfDay(new Date()) })
+  const todayTransactions = (transactions || []).filter(t => 
+    t.date && isWithinInterval(new Date(t.date), { start: startOfDay(new Date()), end: endOfDay(new Date()) })
   );
   
   const todaySales = todayTransactions.reduce((acc, t) => acc + (Number(t.total) || 0), 0);
-  const lowStockProducts = products.filter(p => (Number(p.stock) || 0) <= 3);
-  const stockValue = products.reduce((acc, p) => acc + ((Number(p.cost_price || p.costPrice) || 0) * (Number(p.stock) || 0)), 0);
+  const lowStockProducts = (products || []).filter(p => (Number(p.stock) || 0) <= 3);
+  const stockValue = (products || []).reduce((acc, p) => acc + ((Number(p.cost_price || p.costPrice) || 0) * (Number(p.stock) || 0)), 0);
   
-  // Financial Calculations
-  const totalSalesPeriod = filteredTransactions.reduce((acc, t) => acc + (Number(t.total) || 0), 0);
-  const totalProfitPeriod = filteredTransactions.reduce((acc, t) => acc + (Number(t.profit) || 0), 0);
-  const totalItemsSoldPeriod = filteredTransactions.reduce((acc, t) => 
+  // Financial Calculations (Safe Reducers)
+  const totalSalesPeriod = (filteredTransactions || []).reduce((acc, t) => acc + (Number(t.total) || 0), 0);
+  const totalProfitPeriod = (filteredTransactions || []).reduce((acc, t) => acc + (Number(t.profit) || 0), 0);
+  const totalItemsSoldPeriod = (filteredTransactions || []).reduce((acc, t) => 
     acc + (t.items || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)
   , 0);
-  const totalExpensesPeriod = filteredExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
+  const totalExpensesPeriod = (filteredExpenses || []).reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
   
   // Cash on Hand (All Time) = Total Sales All Time - Total Expenses All Time
-  // Note: This is a simplified calculation. Ideally, it should be Opening Balance + Sales - Expenses.
-  const totalSalesAllTime = transactions.reduce((acc, t) => acc + (Number(t.total) || 0), 0);
-  const totalExpensesAllTime = expenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
+  const totalSalesAllTime = (transactions || []).reduce((acc, t) => acc + (Number(t.total) || 0), 0);
+  const totalExpensesAllTime = (expenses || []).reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
   const cashOnHand = totalSalesAllTime - totalExpensesAllTime;
 
   const bestSellers = useMemo(() => {
