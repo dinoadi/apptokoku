@@ -436,7 +436,11 @@ function AppContent() {
       const dayStart = startOfDay(date);
       const dayEnd = endOfDay(date);
       const dayTotal = (transactions || [])
-        .filter(t => t.date && isWithinInterval(new Date(t.date), { start: dayStart, end: dayEnd }))
+        .filter(t => {
+          if (!t.date) return false;
+          const d = new Date(t.date);
+          return !isNaN(d.getTime()) && isWithinInterval(d, { start: dayStart, end: dayEnd });
+        })
         .reduce((acc, t) => acc + (Number(t.total) || 0), 0);
       return { label: format(date, 'EEE'), value: dayTotal };
     });
@@ -1447,17 +1451,7 @@ function SendIcon() {
               </div>
             </header>
 
-            <div className="flex justify-end mb-6">
-              <button 
-                onClick={() => setIsExpenseModalOpen(true)}
-                className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-2xl font-black shadow-lg shadow-red-100 flex items-center gap-2 text-sm uppercase tracking-wider"
-              >
-                <MinusCircle size={18} />
-                CATAT PENGELUARAN
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8 mt-6">
               {/* Card Omzet */}
               <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
                 <div className="w-12 h-12 md:w-16 md:h-16 bg-green-50 text-green-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
@@ -1467,24 +1461,149 @@ function SendIcon() {
                 <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {totalSalesPeriod.toLocaleString()}</h4>
               </div>
 
-              {/* Card Produk Terjual */}
+              {/* Card Laba Bersih */}
               <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-                <div className="w-12 h-12 md:w-16 md:h-16 bg-pink-50 text-pink-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
-                  <Package size={28} />
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-blue-50 text-blue-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
+                  <Percent size={28} />
                 </div>
-                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Produk Terjual</p>
-                <h4 className="text-xl md:text-3xl font-black text-slate-800">{totalItemsSoldPeriod} Pcs</h4>
+                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Laba Bersih</p>
+                <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {totalProfitPeriod.toLocaleString()}</h4>
               </div>
 
-              {/* Card Transaksi */}
+              {/* Card Pengeluaran */}
               <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-                <div className="w-12 h-12 md:w-16 md:h-16 bg-amber-50 text-amber-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
-                  <History size={28} />
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-red-50 text-red-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
+                  <ArrowDownCircle size={28} />
                 </div>
-                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Transaksi</p>
-                <h4 className="text-xl md:text-3xl font-black text-slate-800">{filteredTransactions.length} Data</h4>
+                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Pengeluaran</p>
+                <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {totalExpensesPeriod.toLocaleString()}</h4>
+              </div>
+
+              {/* Card Cash on Hand */}
+              <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center ring-4 ring-pink-50">
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-pink-50 text-pink-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
+                  <Wallet size={28} />
+                </div>
+                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Cash on Hand</p>
+                <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {cashOnHand.toLocaleString()}</h4>
+                <p className="text-[9px] text-slate-400 mt-1">(Total Sepanjang Waktu)</p>
               </div>
             </div>
+
+            {/* Chart Section */}
+            <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm mb-8">
+              <h3 className="text-lg md:text-xl font-black text-slate-800 mb-6 flex items-center gap-3">
+                <TrendingUp size={20} className="text-pink-500" />
+                Grafik Keuangan (7 Hari Terakhir)
+              </h3>
+              <div className="h-64 flex items-end justify-between gap-2 md:gap-4 px-2">
+                {salesHistory7Days.map((day, i) => {
+                   const dayExpenses = (expenses || [])
+                    .filter(e => {
+                      if (!e.date) return false;
+                      const d = new Date(e.date);
+                      // Compare same day
+                      const targetDate = subDays(new Date(), 6 - i);
+                      return !isNaN(d.getTime()) && isWithinInterval(d, { start: startOfDay(targetDate), end: endOfDay(targetDate) });
+                    })
+                    .reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
+                    
+                   const maxVal = Math.max(
+                     ...salesHistory7Days.map(d => d.value), 
+                     ...[...Array(7)].map((_, idx) => {
+                        const targetDate = subDays(new Date(), 6 - idx);
+                        return (expenses || [])
+                          .filter(e => e.date && isWithinInterval(new Date(e.date), { start: startOfDay(targetDate), end: endOfDay(targetDate) }))
+                          .reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
+                     }),
+                     1
+                   );
+                   
+                   const heightIncome = (day.value / maxVal) * 100;
+                   const heightExpense = (dayExpenses / maxVal) * 100;
+
+                   return (
+                     <div key={i} className="flex-1 flex flex-col justify-end items-center gap-2 group h-full">
+                       <div className="w-full flex gap-1 items-end justify-center h-full">
+                         {/* Income Bar */}
+                         <div 
+                           style={{ height: `${heightIncome}%` }} 
+                           className="w-1/2 max-w-[20px] bg-green-400 rounded-t-md relative group-hover:opacity-80 transition-all"
+                         >
+                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[8px] py-1 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 whitespace-nowrap pointer-events-none">
+                              +{day.value.toLocaleString()}
+                            </div>
+                         </div>
+                         {/* Expense Bar */}
+                         <div 
+                           style={{ height: `${heightExpense}%` }} 
+                           className="w-1/2 max-w-[20px] bg-red-400 rounded-t-md relative group-hover:opacity-80 transition-all"
+                         >
+                            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[8px] py-1 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 whitespace-nowrap pointer-events-none">
+                              -{dayExpenses.toLocaleString()}
+                            </div>
+                         </div>
+                       </div>
+                       <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{day.label}</span>
+                     </div>
+                   );
+                })}
+              </div>
+              <div className="flex justify-center gap-6 mt-6">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-green-400 rounded-full"></div>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Pemasukan</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-red-400 rounded-full"></div>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Pengeluaran</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm">
+                <h3 className="text-lg md:text-xl font-black text-slate-800 mb-6 md:mb-8 flex items-center gap-3">
+                  <FileText size={20} className="text-pink-500" />
+                  Detail Analisis Laba Rugi ({reportFilter === 'today' ? 'Hari Ini' : reportFilter === '7days' ? '7 Hari' : 'Bulan Ini'})
+                </h3>
+                <div className="space-y-4 md:space-y-6">
+                  <div className="flex justify-between items-center p-4 md:p-6 bg-slate-50 rounded-2xl md:rounded-3xl border border-slate-100">
+                    <div>
+                      <p className="font-black text-slate-800 text-sm md:text-base">Modal Barang (Stok)</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Total nilai beli seluruh stok saat ini</p>
+                    </div>
+                    <span className="text-base md:text-xl font-black text-amber-600">Rp {stockValue.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-4 md:p-6 bg-slate-50 rounded-2xl md:rounded-3xl border border-slate-100">
+                    <div>
+                      <p className="font-black text-slate-800 text-sm md:text-base">Total Penjualan</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Uang masuk dalam periode terpilih</p>
+                    </div>
+                    <span className="text-base md:text-xl font-black text-blue-500">Rp {totalSalesPeriod.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-4 md:p-6 bg-slate-50 rounded-2xl md:rounded-3xl border border-slate-100">
+                    <div>
+                      <p className="font-black text-slate-800 text-sm md:text-base">Modal Terjual (HPP)</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Biaya beli barang laku periode terpilih</p>
+                    </div>
+                    <span className="text-base md:text-xl font-black text-red-400">Rp {(totalSalesPeriod - totalProfitPeriod).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-4 md:p-6 bg-slate-50 rounded-2xl md:rounded-3xl border border-slate-100">
+                    <div>
+                      <p className="font-black text-slate-800 text-sm md:text-base">Pengeluaran Operasional</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Biaya operasional periode terpilih</p>
+                    </div>
+                    <span className="text-base md:text-xl font-black text-red-500">Rp {totalExpensesPeriod.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-6 md:p-8 bg-pink-500 text-white rounded-[30px] md:rounded-[40px] shadow-xl shadow-pink-100">
+                    <div>
+                      <p className="text-xl md:text-2xl font-black">Laba Bersih Periode</p>
+                      <p className="text-[10px] opacity-80 font-bold uppercase tracking-widest">Keuntungan murni (Omzet - HPP - Pengeluaran)</p>
+                    </div>
+                    <span className="text-2xl md:text-4xl font-black">Rp {(totalProfitPeriod - totalExpensesPeriod).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
           </div>
         )}
 
