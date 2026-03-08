@@ -1469,9 +1469,7 @@ function SendIcon() {
               </div>
             </div>
 
-            </div>
-
-              <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm">
+            <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm">
                 <h3 className="text-lg md:text-xl font-black text-slate-800 mb-6 md:mb-8 flex items-center gap-3">
                   <FileText size={20} className="text-pink-500" />
                   Detail Analisis Laba Rugi ({reportFilter === 'today' ? 'Hari Ini' : reportFilter === '7days' ? '7 Hari' : 'Bulan Ini'})
