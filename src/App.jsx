@@ -365,10 +365,25 @@ function AppContent() {
     acc + (t.items || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)
   , 0);
   
-  // Cash on Hand (All Time) = Total Sales All Time - Total Expenses All Time
+  // Cash on Hand (All Time) - Calculated from total sales since expenses are currently disabled
   const totalSalesAllTime = (transactions || []).reduce((acc, t) => acc + (Number(t.total) || 0), 0);
-  const totalExpensesAllTime = (expenses || []).reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
-  const cashOnHand = totalSalesAllTime - totalExpensesAllTime;
+  const cashOnHand = totalSalesAllTime; 
+
+  const salesHistory7Days = useMemo(() => {
+    return [...Array(7)].map((_, i) => {
+      const date = subDays(new Date(), 6 - i);
+      const dayStart = startOfDay(date);
+      const dayEnd = endOfDay(date);
+      const dayTotal = (transactions || [])
+        .filter(t => {
+          if (!t.date) return false;
+          const d = new Date(t.date);
+          return !isNaN(d.getTime()) && isWithinInterval(d, { start: dayStart, end: dayEnd });
+        })
+        .reduce((acc, t) => acc + (Number(t.total) || 0), 0);
+      return { label: format(date, 'EEE'), value: dayTotal };
+    });
+  }, [transactions]);
 
   const bestSellers = useMemo(() => {
     const counts = {};
@@ -1408,6 +1423,15 @@ function SendIcon() {
                 <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {totalSalesPeriod.toLocaleString()}</h4>
               </div>
 
+              {/* Card Laba Bersih */}
+              <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-blue-50 text-blue-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
+                  <Percent size={28} />
+                </div>
+                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Laba Bersih</p>
+                <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {totalProfitPeriod.toLocaleString()}</h4>
+              </div>
+
               {/* Card Produk Terjual */}
               <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
                 <div className="w-12 h-12 md:w-16 md:h-16 bg-pink-50 text-pink-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
@@ -1417,14 +1441,48 @@ function SendIcon() {
                 <h4 className="text-xl md:text-3xl font-black text-slate-800">{totalItemsSoldPeriod} Pcs</h4>
               </div>
 
-              {/* Card Transaksi */}
-              <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-                <div className="w-12 h-12 md:w-16 md:h-16 bg-amber-50 text-amber-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
-                  <History size={28} />
+              {/* Card Cash on Hand */}
+              <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center ring-4 ring-pink-50">
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-pink-50 text-pink-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
+                  <Wallet size={28} />
                 </div>
-                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Transaksi</p>
-                <h4 className="text-xl md:text-3xl font-black text-slate-800">{filteredTransactions.length} Data</h4>
+                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Cash on Hand</p>
+                <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {cashOnHand.toLocaleString()}</h4>
+                <p className="text-[9px] text-slate-400 mt-1">(Total Sepanjang Waktu)</p>
               </div>
+            </div>
+
+            {/* Chart Section */}
+            <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm mb-8">
+              <h3 className="text-lg md:text-xl font-black text-slate-800 mb-6 flex items-center gap-3">
+                <TrendingUp size={20} className="text-pink-500" />
+                Grafik Pendapatan (7 Hari Terakhir)
+              </h3>
+              <div className="h-64 flex items-end justify-between gap-2 md:gap-4 px-2">
+                {salesHistory7Days.map((day, i) => {
+                   const maxVal = Math.max(...salesHistory7Days.map(d => d.value), 1);
+                   const height = (day.value / maxVal) * 100;
+
+                   return (
+                     <div key={i} className="flex-1 flex flex-col justify-end items-center gap-2 group h-full">
+                       <div className="w-full flex gap-1 items-end justify-center h-full">
+                         {/* Income Bar */}
+                         <div 
+                           style={{ height: `${height}%` }} 
+                           className="w-full max-w-[30px] md:max-w-[40px] bg-green-400 rounded-t-lg md:rounded-t-xl relative group-hover:opacity-80 transition-all"
+                         >
+                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[8px] py-1 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 whitespace-nowrap pointer-events-none">
+                              +{day.value.toLocaleString()}
+                            </div>
+                         </div>
+                       </div>
+                       <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{day.label}</span>
+                     </div>
+                   );
+                })}
+              </div>
+            </div>
+
             </div>
           </div>
         )}
