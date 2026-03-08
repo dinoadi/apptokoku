@@ -707,15 +707,20 @@ function SendIcon() {
                       return;
                     }
 
+                    if (isNaN(Number(newProduct.sellingPrice)) || isNaN(Number(newProduct.stock))) {
+                      alert('Harga dan Stok harus berupa angka');
+                      return;
+                    }
+
                     const productData = {
                       name: newProduct.name,
                       selling_price: Number(newProduct.sellingPrice) || 0,
                       cost_price: Number(newProduct.costPrice) || 0,
                       stock: Number(newProduct.stock) || 0,
                       category: newProduct.category || categories[0] || '',
-                      variants: newProduct.variants || '',
-                      sku: newProduct.sku?.trim() || ('PRD-' + Date.now().toString().slice(-4)),
-                      image: newProduct.image
+                      variants: newProduct.variants || null,
+                      sku: newProduct.sku?.trim() || null,
+                      image: newProduct.image || null
                     };
 
                     if (editingProduct) {
