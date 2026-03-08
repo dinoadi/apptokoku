@@ -594,6 +594,28 @@ function SendIcon() {
               </div>
             </div>
 
+            {/* Quick Actions - Add Expense Here */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-black text-slate-800">Menu Cepat</h3>
+                <p className="text-xs text-slate-500">Akses fitur penting dengan cepat</p>
+              </div>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setIsAddProductOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-pink-50 text-pink-600 rounded-xl font-bold hover:bg-pink-100 transition-all text-xs md:text-sm"
+                >
+                  <Plus size={16} /> Tambah Produk
+                </button>
+                <button 
+                  onClick={() => setIsExpenseModalOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-all text-xs md:text-sm"
+                >
+                  <MinusCircle size={16} /> Catat Pengeluaran
+                </button>
+              </div>
+            </div>
+
             <div className="grid lg:grid-cols-3 gap-6 md:gap-8">
               <div className="lg:col-span-2 space-y-6 md:space-y-8">
                 <div className="bg-white p-6 md:p-8 rounded-2xl md:rounded-3xl border border-slate-100 shadow-sm">
@@ -1398,7 +1420,17 @@ function SendIcon() {
               </div>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+            <div className="flex justify-end mb-6">
+              <button 
+                onClick={() => setIsExpenseModalOpen(true)}
+                className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-2xl font-black shadow-lg shadow-red-100 flex items-center gap-2 text-sm uppercase tracking-wider"
+              >
+                <MinusCircle size={18} />
+                CATAT PENGELUARAN
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
               {/* Card Omzet */}
               <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
                 <div className="w-12 h-12 md:w-16 md:h-16 bg-green-50 text-green-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
@@ -1437,14 +1469,6 @@ function SendIcon() {
               </div>
             </div>
 
-            <div className="flex justify-end">
-              <button 
-                onClick={() => setIsExpenseModalOpen(true)}
-                className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-2xl font-black shadow-lg shadow-red-100 flex items-center gap-2 text-sm uppercase tracking-wider"
-              >
-                <MinusCircle size={18} />
-                CATAT PENGELUARAN
-              </button>
             </div>
 
               <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm">
