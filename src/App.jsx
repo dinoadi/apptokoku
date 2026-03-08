@@ -80,6 +80,7 @@ function AppContent() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [expenses, setExpenses] = useState([]); 
+  const [historyData, setHistoryData] = useState([]); // Unified transactions and expenses
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [newExpense, setNewExpense] = useState({ description: '', amount: '', category: 'Operasional' });
 
@@ -95,6 +96,13 @@ function AppContent() {
 
       const { data: expData } = await supabase.from('expenses').select('*').order('date', { ascending: false });
       setExpenses(expData || []);
+      
+      // Combine transactions and expenses for history
+      const combined = [
+        ...(transData || []).map(t => ({ ...t, type: 'income' })),
+        ...(expData || []).map(e => ({ ...e, type: 'expense', invoice: 'EXP', items: [{ name: e.description }], total: e.amount }))
+      ].sort((a, b) => new Date(b.date) - new Date(a.date));
+      setHistoryData(combined);
       
       // Collect unique categories from products
       const productCategories = new Set((prodData || []).map(p => p.category).filter(Boolean));
@@ -588,11 +596,11 @@ function SendIcon() {
                   <History size={20} />
                 </div>
                 <p className="text-[10px] md:text-sm font-bold text-slate-500 mb-1 uppercase tracking-wider">Riwayat</p>
-                <h4 className="text-sm md:text-2xl font-black text-slate-800">{transactions.length} Data</h4>
+                <h4 className="text-sm md:text-2xl font-black text-slate-800">{historyData.length} Data</h4>
               </div>
             </div>
 
-            {/* Quick Actions - Add Product Only */}
+            {/* Quick Actions - Add Expense Here */}
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-black text-slate-800">Menu Cepat</h3>
@@ -604,6 +612,12 @@ function SendIcon() {
                   className="flex items-center gap-2 px-4 py-2 bg-pink-50 text-pink-600 rounded-xl font-bold hover:bg-pink-100 transition-all text-xs md:text-sm"
                 >
                   <Plus size={16} /> Tambah Produk
+                </button>
+                <button 
+                  onClick={() => setIsExpenseModalOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-all text-xs md:text-sm"
+                >
+                  <MinusCircle size={16} /> Catat Pengeluaran
                 </button>
               </div>
             </div>
@@ -1309,36 +1323,51 @@ function SendIcon() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {transactions.map(t => (
-                      <tr key={t.id} className="hover:bg-slate-50/50 transition-colors group">
+                    {historyData.map(t => (
+                      <tr key={`${t.type}-${t.id}`} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-8 py-6">
                           <div className="flex flex-col">
-                            <span className="font-black text-slate-800 text-sm uppercase tracking-tighter">{t.invoice}</span>
+                            {t.type === 'expense' ? (
+                                <span className="font-black text-red-500 text-sm uppercase tracking-tighter">PENGELUARAN</span>
+                            ) : (
+                                <span className="font-black text-slate-800 text-sm uppercase tracking-tighter">{t.invoice}</span>
+                            )}
                             <span className="text-[10px] font-bold text-slate-400 uppercase">{format(new Date(t.date), 'dd MMM yyyy, HH:mm')}</span>
                           </div>
                         </td>
                         <td className="px-8 py-6">
                           <div className="flex flex-col">
-                            <span className="font-bold text-slate-600">{t.items.length} Item</span>
+                            {t.type === 'expense' ? (
+                                <span className="font-bold text-slate-600">{t.category}</span>
+                            ) : (
+                                <span className="font-bold text-slate-600">{t.items.length} Item</span>
+                            )}
                             <span className="text-[10px] text-slate-400 font-bold truncate max-w-[150px]">
-                                {t.items.map(i => i.name).join(', ')}
+                                {t.type === 'expense' ? t.description : t.items.map(i => i.name).join(', ')}
                             </span>
                           </div>
                         </td>
-                        <td className="px-8 py-6 font-black text-slate-800">
-                            Rp {(t.total || 0).toLocaleString()}
+                        <td className={`px-8 py-6 font-black ${t.type === 'expense' ? 'text-red-500' : 'text-slate-800'}`}>
+                            {t.type === 'expense' ? '- ' : ''}Rp {(t.total || t.amount || 0).toLocaleString()}
                         </td>
                         <td className="px-8 py-6">
-                          <span className="px-3 py-1 bg-blue-50 text-blue-500 rounded-lg text-[10px] font-black uppercase">{t.payment_method || t.paymentMethod}</span>
+                          {t.type === 'expense' ? (
+                              <span className="px-3 py-1 bg-red-50 text-red-500 rounded-lg text-[10px] font-black uppercase">KELUAR</span>
+                          ) : (
+                              <span className="px-3 py-1 bg-blue-50 text-blue-500 rounded-lg text-[10px] font-black uppercase">{t.payment_method || t.paymentMethod}</span>
+                          )}
                         </td>
                         <td className="px-8 py-6">
                           <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                            <button onClick={() => { setLastReceipt(t); setShowReceipt(true); }} className="p-2 text-slate-300 hover:text-pink-500 transition-all">
-                              <Printer size={18} />
-                            </button>
+                            {t.type !== 'expense' && (
+                                <button onClick={() => { setLastReceipt(t); setShowReceipt(true); }} className="p-2 text-slate-300 hover:text-pink-500 transition-all">
+                                  <Printer size={18} />
+                                </button>
+                            )}
                             <button onClick={async () => {
-                              if (window.confirm('Hapus transaksi ini?')) {
-                                const { error } = await supabase.from('transactions').delete().eq('id', t.id);
+                              if (window.confirm('Hapus data ini?')) {
+                                const table = t.type === 'expense' ? 'expenses' : 'transactions';
+                                const { error } = await supabase.from(table).delete().eq('id', t.id);
                                 if (error) alert('Gagal hapus: ' + error.message);
                                 else fetchData();
                               }
@@ -1349,9 +1378,9 @@ function SendIcon() {
                         </td>
                       </tr>
                     ))}
-                    {transactions.length === 0 && (
+                    {historyData.length === 0 && (
                       <tr>
-                        <td colSpan="5" className="text-center py-20 text-slate-400 font-bold">Belum ada riwayat transaksi.</td>
+                        <td colSpan="5" className="text-center py-20 text-slate-400 font-bold">Belum ada riwayat transaksi/pengeluaran.</td>
                       </tr>
                     )}
                   </tbody>
