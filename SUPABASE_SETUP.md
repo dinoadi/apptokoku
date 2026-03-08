@@ -55,12 +55,20 @@ create table settings (
   store_name text,
   address text,
   phone text,
-  receipt_footer text
+  receipt_footer text,
+  categories jsonb
 );
 
 -- Isi data awal pengaturan
-insert into settings (id, store_name, address, phone, receipt_footer)
-values (1, 'Nama Toko Anda', 'Alamat Lengkap', '0812345', 'Terima kasih!');
+insert into settings (id, store_name, address, phone, receipt_footer, categories)
+values (
+  1, 
+  'Nama Toko Anda', 
+  'Alamat Lengkap', 
+  '0812345', 
+  'Terima kasih!',
+  '["Daster Bali", "Daster Rayon", "Daster Jumbo", "Daster Anak"]'::jsonb
+);
 ```
 
 ## 4. Matikan Keamanan (Untuk Pemula)
