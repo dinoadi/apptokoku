@@ -88,13 +88,13 @@ function AppContent() {
     try {
       setIsLoading(true);
       const { data: prodData } = await supabase.from('products').select('*').order('name', { ascending: true });
-      if (prodData) setProducts(prodData);
+      setProducts(prodData || []);
       
       const { data: transData } = await supabase.from('transactions').select('*').order('date', { ascending: false });
-      if (transData) setTransactions(transData);
+      setTransactions(transData || []);
 
       const { data: expData } = await supabase.from('expenses').select('*').order('date', { ascending: false });
-      if (expData) setExpenses(expData);
+      setExpenses(expData || []);
       
       const { data: settsData } = await supabase.from('settings').select('*').single();
       if (settsData) {
@@ -109,6 +109,10 @@ function AppContent() {
       }
     } catch (err) {
       console.error('Fetch error:', err);
+      // Fallback to empty arrays on error to prevent crash
+      setProducts(prev => prev || []);
+      setTransactions(prev => prev || []);
+      setExpenses(prev => prev || []);
     } finally {
       setIsLoading(false);
     }
