@@ -1049,21 +1049,21 @@ function SendIcon() {
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {products.map(p => (
-                      <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <tr key={p.id || Math.random()} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-8 py-6">
                           <div className="flex flex-col">
-                            <span className="font-bold text-slate-800">{p.name}</span>
+                            <span className="font-bold text-slate-800">{p.name || 'Tanpa Nama'}</span>
                             <span className="text-[10px] font-bold text-slate-400">{p.sku || '-'}</span>
                             <span className="text-[10px] font-bold text-pink-400 mt-1 uppercase tracking-tighter">{p.variants || 'Tanpa Varian'}</span>
                           </div>
                         </td>
                         <td className="px-8 py-6">
-                          <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold uppercase">{p.category}</span>
+                          <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold uppercase">{p.category || 'Umum'}</span>
                         </td>
                         <td className="px-8 py-6 font-bold text-slate-500">Rp {(p.cost_price || p.costPrice || 0).toLocaleString()}</td>
                         <td className="px-8 py-6 font-bold text-pink-500">Rp {(p.selling_price || p.sellingPrice || 0).toLocaleString()}</td>
                         <td className="px-8 py-6">
-                          <span className={`font-black ${p.stock <= 3 ? 'text-red-500' : 'text-slate-800'}`}>{p.stock} pcs</span>
+                          <span className={`font-black ${(p.stock || 0) <= 3 ? 'text-red-500' : 'text-slate-800'}`}>{p.stock || 0} pcs</span>
                         </td>
                         <td className="px-8 py-6">
                           <div className="flex gap-1">
@@ -1091,30 +1091,36 @@ function SendIcon() {
             {/* Mobile Cards */}
             <div className="md:hidden space-y-3 pb-20">
               {products.map(p => (
-                <div key={p.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex gap-4">
+                <div key={p.id || Math.random()} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex gap-4">
                   <div className="w-16 h-16 bg-slate-50 rounded-xl flex items-center justify-center text-slate-300 shrink-0 overflow-hidden">
-                    {p.image ? <img src={p.image} alt={p.name} className="w-full h-full object-cover" /> : <Package size={24} />}
+                    {p.image ? <img src={p.image} alt={p.name || 'Produk'} className="w-full h-full object-cover" /> : <Package size={24} />}
                   </div>
                   <div className="flex-1 space-y-1">
                     <div className="flex justify-between items-start">
-                      <h4 className="font-black text-slate-800 text-sm leading-tight">{p.name}</h4>
+                      <h4 className="font-black text-slate-800 text-sm leading-tight">{p.name || 'Tanpa Nama'}</h4>
                       <div className="flex gap-1">
                         <button onClick={() => handleOpenEditProduct(p)} className="text-slate-300 hover:text-blue-500">
                           <Edit size={16} />
                         </button>
-                        <button onClick={() => setProducts(products.filter(item => item.id !== p.id))} className="text-slate-300 hover:text-red-500">
+                        <button onClick={async () => {
+                          if (window.confirm('Hapus produk ini?')) {
+                            const { error } = await supabase.from('products').delete().eq('id', p.id);
+                            if (error) alert('Gagal hapus: ' + error.message);
+                            else fetchData();
+                          }
+                        }} className="text-slate-300 hover:text-red-500">
                           <Trash2 size={16} />
                         </button>
                       </div>
                     </div>
-                    <p className="text-[10px] font-bold text-slate-400">{p.sku} • {p.category}</p>
+                    <p className="text-[10px] font-bold text-slate-400">{p.sku || '-'} • {p.category || 'Umum'}</p>
                     <div className="flex justify-between items-end pt-1">
                       <div>
                         <p className="text-[10px] text-slate-400 font-bold uppercase">Harga Jual</p>
-                        <p className="font-black text-pink-500 text-sm">Rp {p.sellingPrice.toLocaleString()}</p>
+                        <p className="font-black text-pink-500 text-sm">Rp {(p.selling_price || p.sellingPrice || 0).toLocaleString()}</p>
                       </div>
-                      <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${p.stock <= 3 ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}`}>
-                        Stok {p.stock}
+                      <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${(p.stock || 0) <= 3 ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}`}>
+                        Stok {p.stock || 0}
                       </span>
                     </div>
                   </div>
