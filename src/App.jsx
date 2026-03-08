@@ -223,13 +223,19 @@ export default function App() {
         alert('Gagal simpan transaksi: ' + error.message);
       } else {
         await updateStock();
-        setLastReceipt(data[0]);
+        if (data && data.length > 0) {
+          setLastReceipt(data[0]);
+          setShowReceipt(true);
+        } else {
+          // Fallback if select() returns nothing (e.g. RLS issue)
+          setLastReceipt(newTransaction);
+          setShowReceipt(true);
+        }
         fetchData();
         setCart([]);
         setDiscount(0);
         setPaymentAmount('');
         setIsCheckingOut(false);
-        setShowReceipt(true);
       }
     };
 
@@ -292,6 +298,17 @@ export default function App() {
   }, [transactions]);
 
   // --- Render Components ---
+  if (isLoading && products.length === 0) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="font-bold text-slate-400 animate-pulse">Memuat Data Toko...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-pink-50 flex items-center justify-center p-4">
@@ -895,26 +912,26 @@ function SendIcon() {
               <div className="border-t-2 border-dashed border-slate-100 pt-4 space-y-2">
                 <div className="flex justify-between text-xs font-bold text-slate-500">
                   <span>Subtotal</span>
-                  <span>Rp {lastReceipt.subtotal.toLocaleString()}</span>
+                  <span>Rp {(lastReceipt?.subtotal || 0).toLocaleString()}</span>
                 </div>
-                {lastReceipt.discount > 0 && (
+                {(lastReceipt?.discount || 0) > 0 && (
                   <div className="flex justify-between text-xs font-bold text-red-500">
                     <span>Diskon</span>
-                    <span>- Rp {lastReceipt.discount.toLocaleString()}</span>
+                    <span>- Rp {(lastReceipt?.discount || 0).toLocaleString()}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-lg font-black text-slate-800">
                   <span>TOTAL</span>
-                  <span>Rp {lastReceipt.total.toLocaleString()}</span>
+                  <span>Rp {(lastReceipt?.total || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-xs font-bold text-slate-500">
-                  <span>Bayar ({lastReceipt.paymentMethod})</span>
-                  <span>Rp {lastReceipt.paymentAmount.toLocaleString()}</span>
+                  <span>Bayar ({lastReceipt?.payment_method || lastReceipt?.paymentMethod || '-'})</span>
+                  <span>Rp {(lastReceipt?.payment_amount || lastReceipt?.paymentAmount || 0).toLocaleString()}</span>
                 </div>
-                {lastReceipt.paymentMethod === 'Tunai' && (
+                {(lastReceipt?.payment_method === 'Tunai' || lastReceipt?.paymentMethod === 'Tunai') && (
                   <div className="flex justify-between text-xs font-bold text-green-500">
                     <span>Kembali</span>
-                    <span>Rp {(lastReceipt.paymentAmount - lastReceipt.total).toLocaleString()}</span>
+                    <span>Rp {Math.max(0, (lastReceipt?.payment_amount || lastReceipt?.paymentAmount || 0) - (lastReceipt?.total || 0)).toLocaleString()}</span>
                   </div>
                 )}
               </div>
@@ -1080,9 +1097,9 @@ function SendIcon() {
                             <span className="text-[10px] text-slate-400 font-bold truncate max-w-[150px]">{t.items.map(i => i.name).join(', ')}</span>
                           </div>
                         </td>
-                        <td className="px-8 py-6 font-black text-slate-800">Rp {t.total.toLocaleString()}</td>
+                        <td className="px-8 py-6 font-black text-slate-800">Rp {(t.total || 0).toLocaleString()}</td>
                         <td className="px-8 py-6">
-                          <span className="px-3 py-1 bg-blue-50 text-blue-500 rounded-lg text-[10px] font-black uppercase">{t.paymentMethod}</span>
+                          <span className="px-3 py-1 bg-blue-50 text-blue-500 rounded-lg text-[10px] font-black uppercase">{t.payment_method || t.paymentMethod}</span>
                         </td>
                         <td className="px-8 py-6">
                           <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
@@ -1119,15 +1136,15 @@ function SendIcon() {
                   <div className="flex justify-between items-start">
                     <div className="flex flex-col">
                       <span className="font-black text-slate-800 text-xs uppercase">{t.invoice}</span>
-                      <span className="text-[10px] font-bold text-slate-400">{format(new Date(t.date), 'dd/MM/yy HH:mm')}</span>
+                      <span className="text-[10px] font-bold text-slate-400">{t.date ? format(new Date(t.date), 'dd/MM/yy HH:mm') : '-'}</span>
                     </div>
-                    <span className="bg-blue-50 text-blue-500 text-[9px] font-black px-2 py-0.5 rounded-lg uppercase">{t.paymentMethod}</span>
+                    <span className="bg-blue-50 text-blue-500 text-[9px] font-black px-2 py-0.5 rounded-lg uppercase">{t.payment_method || t.paymentMethod}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <div className="text-[10px] font-bold text-slate-500">
-                      {t.items.length} Item • {t.items[0].name}{t.items.length > 1 ? '...' : ''}
+                      {(t.items || []).length} Item • {(t.items && t.items[0]) ? t.items[0].name : 'Item'} {(t.items || []).length > 1 ? '...' : ''}
                     </div>
-                    <span className="font-black text-slate-800 text-sm">Rp {t.total.toLocaleString()}</span>
+                    <span className="font-black text-slate-800 text-sm">Rp {(t.total || 0).toLocaleString()}</span>
                   </div>
                   <div className="flex gap-2 pt-2 border-t border-slate-50">
                     <button 
