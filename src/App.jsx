@@ -80,6 +80,7 @@ function AppContent() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [expenses, setExpenses] = useState([]);
+  const [historyData, setHistoryData] = useState([]); // Unified transactions and expenses
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [newExpense, setNewExpense] = useState({ description: '', amount: '', category: 'Operasional' });
 
@@ -95,6 +96,13 @@ function AppContent() {
 
       const { data: expData } = await supabase.from('expenses').select('*').order('date', { ascending: false });
       setExpenses(expData || []);
+      
+      // Combine transactions and expenses for history
+      const combined = [
+        ...(transData || []).map(t => ({ ...t, type: 'income' })),
+        ...(expData || []).map(e => ({ ...e, type: 'expense', invoice: 'EXP', items: [{ name: e.description }], total: e.amount }))
+      ].sort((a, b) => new Date(b.date) - new Date(a.date));
+      setHistoryData(combined);
       
       const { data: settsData } = await supabase.from('settings').select('*').single();
       
@@ -1335,32 +1343,51 @@ function SendIcon() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {transactions.map(t => (
-                      <tr key={t.id} className="hover:bg-slate-50/50 transition-colors group">
+                    {historyData.map(t => (
+                      <tr key={`${t.type}-${t.id}`} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-8 py-6">
                           <div className="flex flex-col">
-                            <span className="font-black text-slate-800 text-sm uppercase tracking-tighter">{t.invoice}</span>
+                            {t.type === 'expense' ? (
+                                <span className="font-black text-red-500 text-sm uppercase tracking-tighter">PENGELUARAN</span>
+                            ) : (
+                                <span className="font-black text-slate-800 text-sm uppercase tracking-tighter">{t.invoice}</span>
+                            )}
                             <span className="text-[10px] font-bold text-slate-400 uppercase">{format(new Date(t.date), 'dd MMM yyyy, HH:mm')}</span>
                           </div>
                         </td>
                         <td className="px-8 py-6">
                           <div className="flex flex-col">
-                            <span className="font-bold text-slate-600">{t.items.length} Item</span>
-                            <span className="text-[10px] text-slate-400 font-bold truncate max-w-[150px]">{t.items.map(i => i.name).join(', ')}</span>
+                            {t.type === 'expense' ? (
+                                <span className="font-bold text-slate-600">{t.category}</span>
+                            ) : (
+                                <span className="font-bold text-slate-600">{t.items.length} Item</span>
+                            )}
+                            <span className="text-[10px] text-slate-400 font-bold truncate max-w-[150px]">
+                                {t.type === 'expense' ? t.description : t.items.map(i => i.name).join(', ')}
+                            </span>
                           </div>
                         </td>
-                        <td className="px-8 py-6 font-black text-slate-800">Rp {(t.total || 0).toLocaleString()}</td>
+                        <td className={`px-8 py-6 font-black ${t.type === 'expense' ? 'text-red-500' : 'text-slate-800'}`}>
+                            {t.type === 'expense' ? '- ' : ''}Rp {(t.total || t.amount || 0).toLocaleString()}
+                        </td>
                         <td className="px-8 py-6">
-                          <span className="px-3 py-1 bg-blue-50 text-blue-500 rounded-lg text-[10px] font-black uppercase">{t.payment_method || t.paymentMethod}</span>
+                          {t.type === 'expense' ? (
+                              <span className="px-3 py-1 bg-red-50 text-red-500 rounded-lg text-[10px] font-black uppercase">KELUAR</span>
+                          ) : (
+                              <span className="px-3 py-1 bg-blue-50 text-blue-500 rounded-lg text-[10px] font-black uppercase">{t.payment_method || t.paymentMethod}</span>
+                          )}
                         </td>
                         <td className="px-8 py-6">
                           <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                            <button onClick={() => { setLastReceipt(t); setShowReceipt(true); }} className="p-2 text-slate-300 hover:text-pink-500 transition-all">
-                              <Printer size={18} />
-                            </button>
+                            {t.type !== 'expense' && (
+                                <button onClick={() => { setLastReceipt(t); setShowReceipt(true); }} className="p-2 text-slate-300 hover:text-pink-500 transition-all">
+                                  <Printer size={18} />
+                                </button>
+                            )}
                             <button onClick={async () => {
-                              if (window.confirm('Hapus transaksi ini?')) {
-                                const { error } = await supabase.from('transactions').delete().eq('id', t.id);
+                              if (window.confirm('Hapus data ini?')) {
+                                const table = t.type === 'expense' ? 'expenses' : 'transactions';
+                                const { error } = await supabase.from(table).delete().eq('id', t.id);
                                 if (error) alert('Gagal hapus: ' + error.message);
                                 else fetchData();
                               }
@@ -1371,9 +1398,9 @@ function SendIcon() {
                         </td>
                       </tr>
                     ))}
-                    {transactions.length === 0 && (
+                    {historyData.length === 0 && (
                       <tr>
-                        <td colSpan="5" className="text-center py-20 text-slate-400 font-bold">Belum ada transaksi tercatat.</td>
+                        <td colSpan="5" className="text-center py-20 text-slate-400 font-bold">Belum ada riwayat transaksi/pengeluaran.</td>
                       </tr>
                     )}
                   </tbody>
@@ -1383,33 +1410,50 @@ function SendIcon() {
 
             {/* Mobile Cards */}
             <div className="md:hidden space-y-3 pb-20">
-              {transactions.map(t => (
-                <div key={t.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-3">
+              {historyData.map(t => (
+                <div key={`${t.type}-${t.id}`} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-3">
                   <div className="flex justify-between items-start">
                     <div className="flex flex-col">
-                      <span className="font-black text-slate-800 text-xs uppercase">{t.invoice}</span>
+                      {t.type === 'expense' ? (
+                        <span className="font-black text-red-500 text-xs uppercase">PENGELUARAN</span>
+                      ) : (
+                        <span className="font-black text-slate-800 text-xs uppercase">{t.invoice}</span>
+                      )}
                       <span className="text-[10px] font-bold text-slate-400">{t.date ? format(new Date(t.date), 'dd/MM/yy HH:mm') : '-'}</span>
                     </div>
-                    <span className="bg-blue-50 text-blue-500 text-[9px] font-black px-2 py-0.5 rounded-lg uppercase">{t.payment_method || t.paymentMethod}</span>
+                    {t.type === 'expense' ? (
+                        <span className="bg-red-50 text-red-500 text-[9px] font-black px-2 py-0.5 rounded-lg uppercase">KELUAR</span>
+                    ) : (
+                        <span className="bg-blue-50 text-blue-500 text-[9px] font-black px-2 py-0.5 rounded-lg uppercase">{t.payment_method || t.paymentMethod}</span>
+                    )}
                   </div>
                   <div className="flex justify-between items-center">
                     <div className="text-[10px] font-bold text-slate-500">
-                      {(t.items || []).length} Item • {(t.items && t.items[0]) ? t.items[0].name : 'Item'} {(t.items || []).length > 1 ? '...' : ''}
+                      {t.type === 'expense' ? (
+                         <span className="text-red-400">{t.description}</span>
+                      ) : (
+                         <>{(t.items || []).length} Item • {(t.items && t.items[0]) ? t.items[0].name : 'Item'} {(t.items || []).length > 1 ? '...' : ''}</>
+                      )}
                     </div>
-                    <span className="font-black text-slate-800 text-sm">Rp {(t.total || 0).toLocaleString()}</span>
+                    <span className={`font-black text-sm ${t.type === 'expense' ? 'text-red-500' : 'text-slate-800'}`}>
+                        {t.type === 'expense' ? '- ' : ''}Rp {(t.total || t.amount || 0).toLocaleString()}
+                    </span>
                   </div>
                   <div className="flex gap-2 pt-2 border-t border-slate-50">
-                    <button 
-                      onClick={() => { setLastReceipt(t); setShowReceipt(true); }}
-                      className="flex-1 flex items-center justify-center gap-2 py-2 bg-pink-50 text-pink-500 rounded-xl text-[10px] font-black"
-                    >
-                      <Printer size={14} />
-                      CETAK STRUK
-                    </button>
+                    {t.type !== 'expense' && (
+                        <button 
+                          onClick={() => { setLastReceipt(t); setShowReceipt(true); }}
+                          className="flex-1 flex items-center justify-center gap-2 py-2 bg-pink-50 text-pink-500 rounded-xl text-[10px] font-black"
+                        >
+                          <Printer size={14} />
+                          CETAK STRUK
+                        </button>
+                    )}
                     <button 
                       onClick={async () => {
-                        if (window.confirm('Hapus transaksi ini?')) {
-                          const { error } = await supabase.from('transactions').delete().eq('id', t.id);
+                        if (window.confirm('Hapus data ini?')) {
+                          const table = t.type === 'expense' ? 'expenses' : 'transactions';
+                          const { error } = await supabase.from(table).delete().eq('id', t.id);
                           if (error) alert('Gagal hapus: ' + error.message);
                           else fetchData();
                         }
@@ -1421,7 +1465,7 @@ function SendIcon() {
                   </div>
                 </div>
               ))}
-              {transactions.length === 0 && <p className="text-center py-10 text-slate-400 font-bold text-sm">Belum ada riwayat penjualan.</p>}
+              {historyData.length === 0 && <p className="text-center py-10 text-slate-400 font-bold text-sm">Belum ada riwayat transaksi/pengeluaran.</p>}
             </div>
           </div>
         )}
