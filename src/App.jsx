@@ -19,7 +19,51 @@ const INITIAL_PRODUCTS = [
 
 const INITIAL_CATEGORIES = ['Daster Bali', 'Daster Rayon', 'Daster Jumbo', 'Daster Anak'];
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('App Error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-slate-50 text-center">
+          <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md">
+            <h2 className="text-2xl font-black text-slate-800 mb-2">Ups, Terjadi Kesalahan!</h2>
+            <p className="text-slate-500 mb-6 text-sm">Aplikasi mengalami kendala teknis.</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-6 py-3 bg-pink-500 text-white font-bold rounded-xl hover:bg-pink-600 transition-all"
+            >
+              Muat Ulang Halaman
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children; 
+  }
+}
+
 export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppContent />
+    </ErrorBoundary>
+  );
+}
+
+function AppContent() {
   // --- Auth & Core Data State ---
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [products, setProducts] = useState([]);
@@ -61,12 +105,19 @@ export default function App() {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    const formData = new FormData(e.target);
-    if ((formData.get('username') === 'admin' && formData.get('password') === 'admin123') || 
-        (formData.get('username') === 'admin' && formData.get('password') === 'admin')) {
-      setIsLoggedIn(true);
-    } else {
-      alert('Login Gagal!');
+    try {
+      const formData = new FormData(e.target);
+      const user = formData.get('username')?.toString() || '';
+      const pass = formData.get('password')?.toString() || '';
+      if ((user === 'admin' && pass === 'admin123') || 
+          (user === 'admin' && pass === 'admin')) {
+        setIsLoggedIn(true);
+      } else {
+        alert('Login Gagal!');
+      }
+    } catch (err) {
+      console.error('Login Error:', err);
+      alert('Terjadi kesalahan saat login.');
     }
   };
 
@@ -272,7 +323,7 @@ export default function App() {
 
   const bestSellers = useMemo(() => {
     const counts = {};
-    transactions.forEach(t => {
+    (transactions || []).forEach(t => {
       if (t.items && Array.isArray(t.items)) {
         t.items.forEach(item => {
           counts[item.name] = (counts[item.name] || 0) + (Number(item.quantity) || 0);
@@ -290,8 +341,8 @@ export default function App() {
       const date = subDays(new Date(), 6 - i);
       const dayStart = startOfDay(date);
       const dayEnd = endOfDay(date);
-      const dayTotal = transactions
-        .filter(t => isWithinInterval(new Date(t.date), { start: dayStart, end: dayEnd }))
+      const dayTotal = (transactions || [])
+        .filter(t => t.date && isWithinInterval(new Date(t.date), { start: dayStart, end: dayEnd }))
         .reduce((acc, t) => acc + (Number(t.total) || 0), 0);
       return { label: format(date, 'EEE'), value: dayTotal };
     });
@@ -704,9 +755,9 @@ function SendIcon() {
 
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4 overflow-y-auto max-h-[calc(100vh-280px)] md:max-h-none pr-1 custom-scrollbar">
                 {products.filter(p => 
-                  p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                  p.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  p.sku?.toLowerCase().includes(searchTerm.toLowerCase())
+                  (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                  (p.category || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  (p.sku || '').toLowerCase().includes(searchTerm.toLowerCase())
                 ).map(p => {
                   const inCart = cart.find(item => item.id === p.id);
                   return (
