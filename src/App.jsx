@@ -400,22 +400,6 @@ function AppContent() {
       .slice(0, 5);
   }, [transactions]);
 
-  const salesHistory7Days = useMemo(() => {
-    return [...Array(7)].map((_, i) => {
-      const date = subDays(new Date(), 6 - i);
-      const dayStart = startOfDay(date);
-      const dayEnd = endOfDay(date);
-      const dayTotal = (transactions || [])
-        .filter(t => {
-          if (!t.date) return false;
-          const d = new Date(t.date);
-          return !isNaN(d.getTime()) && isWithinInterval(d, { start: dayStart, end: dayEnd });
-        })
-        .reduce((acc, t) => acc + (Number(t.total) || 0), 0);
-      return { label: format(date, 'EEE'), value: dayTotal };
-    });
-  }, [transactions]);
-
   // --- Render Components ---
   if (isLoading && products.length === 0) {
     return (
@@ -1481,8 +1465,6 @@ function SendIcon() {
                    );
                 })}
               </div>
-            </div>
-
             </div>
           </div>
         )}
