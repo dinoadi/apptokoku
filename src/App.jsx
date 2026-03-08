@@ -438,33 +438,62 @@ function AppContent() {
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-pink-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden">
-          <div className="bg-pink-500 p-8 text-white text-center">
-            <h1 className="text-3xl font-black tracking-tighter mb-2">{settings.storeName}</h1>
-            <p className="opacity-90">Sistem Kasir Modern</p>
+      <div className="min-h-screen bg-pink-50 flex items-center justify-center p-4 relative overflow-hidden">
+        {/* Animated Background Pattern */}
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+          <style>{`
+            @keyframes floatPattern {
+              0% { transform: translateY(0) rotate(-12deg); }
+              100% { transform: translateY(-50%) rotate(-12deg); }
+            }
+          `}</style>
+          <div className="absolute inset-0 opacity-10 flex flex-wrap content-start" 
+               style={{ 
+                 animation: 'floatPattern 60s linear infinite', 
+                 width: '200%', 
+                 height: '200%', 
+                 left: '-50%', 
+                 top: '-50%' 
+               }}>
+            {Array.from({ length: 400 }).map((_, i) => (
+              <span key={i} className="text-4xl font-black text-pink-500 m-8 select-none">
+                A&M
+              </span>
+            ))}
           </div>
-          <form onSubmit={handleLogin} className="p-8 space-y-6">
+        </div>
+
+        {/* Glassmorphism Login Card */}
+        <div className="w-full max-w-md bg-white/80 backdrop-blur-xl rounded-[40px] shadow-2xl overflow-hidden z-10 border border-white/50">
+          <div className="p-10 text-center">
+            <div className="w-20 h-20 bg-pink-500 rounded-3xl mx-auto flex items-center justify-center mb-6 shadow-lg shadow-pink-200 rotate-3 hover:rotate-6 transition-all duration-500">
+              <ShoppingCart size={40} className="text-white" />
+            </div>
+            <h1 className="text-3xl font-black tracking-tighter text-slate-800 mb-2">Welcome Back!</h1>
+            <p className="text-slate-500 font-medium">Masuk untuk mengelola {settings.storeName}</p>
+          </div>
+          
+          <form onSubmit={handleLogin} className="px-10 pb-10 space-y-5">
             <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-600">Username</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-4">Username</label>
               <input 
                 name="username" 
-                className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-pink-500 focus:bg-white outline-none transition-all font-medium" 
+                className="w-full p-4 bg-white/50 border-2 border-white focus:border-pink-500 rounded-2xl outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300 shadow-sm" 
                 placeholder="admin"
                 required
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-600">Password</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-4">Password</label>
               <input 
                 name="password" 
                 type="password" 
-                className="w-full p-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-pink-500 focus:bg-white outline-none transition-all font-medium" 
+                className="w-full p-4 bg-white/50 border-2 border-white focus:border-pink-500 rounded-2xl outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300 shadow-sm" 
                 placeholder="••••••••"
                 required
               />
             </div>
-            <button className="w-full bg-pink-500 hover:bg-pink-600 text-white py-4 rounded-2xl font-black text-lg shadow-lg shadow-pink-200 transition-all active:scale-95">
+            <button className="w-full bg-pink-500 hover:bg-pink-600 text-white py-5 rounded-2xl font-black text-lg shadow-xl shadow-pink-200 transition-all active:scale-95 mt-4 hover:-translate-y-1">
               MASUK KE SISTEM
             </button>
           </form>
