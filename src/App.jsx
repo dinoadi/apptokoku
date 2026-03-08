@@ -57,9 +57,7 @@ class ErrorBoundary extends React.Component {
 
 export default function App() {
   return (
-    <ErrorBoundary>
-      <AppContent />
-    </ErrorBoundary>
+    <AppContent />
   );
 }
 
@@ -186,8 +184,8 @@ function AppContent() {
     setEditingProduct(product);
     setNewProduct({
       name: product.name,
-      sellingPrice: product.selling_price,
-      costPrice: product.cost_price,
+      sellingPrice: product.selling_price || product.sellingPrice || 0,
+      costPrice: product.cost_price || product.costPrice || 0,
       stock: product.stock,
       category: product.category,
       variants: product.variants,
