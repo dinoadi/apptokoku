@@ -534,7 +534,7 @@ function SendIcon() {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'pos', label: 'Kasir', icon: ShoppingCart },
     { id: 'products', label: 'Produk', icon: Package },
-    { id: 'transactions', label: 'Riwayat', icon: History },
+    { id: 'transactions', label: 'Aktivitas', icon: History },
     { id: 'reports', label: 'Laporan', icon: FileText },
     { id: 'settings', label: 'Pengaturan', icon: Settings },
   ];
@@ -1301,7 +1301,7 @@ function SendIcon() {
         {activeTab === 'transactions' && (
           <div className="space-y-4 animate-in fade-in duration-300">
             <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] shadow-sm border border-slate-100 flex justify-between items-center">
-              <h3 className="text-xl md:text-2xl font-black text-slate-800">Riwayat Penjualan</h3>
+              <h3 className="text-xl md:text-2xl font-black text-slate-800">Aktivitas Toko</h3>
               <div className="flex gap-2">
                 <button className="p-2 md:p-3 bg-slate-50 rounded-xl md:rounded-2xl text-slate-500 hover:text-pink-500">
                   <Filter size={18} />
@@ -1390,33 +1390,50 @@ function SendIcon() {
 
             {/* Mobile Cards */}
             <div className="md:hidden space-y-3 pb-20">
-              {transactions.map(t => (
-                <div key={t.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-3">
+              {historyData.map(t => (
+                <div key={`${t.type}-${t.id}`} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-3">
                   <div className="flex justify-between items-start">
                     <div className="flex flex-col">
-                      <span className="font-black text-slate-800 text-xs uppercase">{t.invoice}</span>
+                      {t.type === 'expense' ? (
+                        <span className="font-black text-red-500 text-xs uppercase">PENGELUARAN</span>
+                      ) : (
+                        <span className="font-black text-slate-800 text-xs uppercase">{t.invoice}</span>
+                      )}
                       <span className="text-[10px] font-bold text-slate-400">{t.date ? format(new Date(t.date), 'dd/MM/yy HH:mm') : '-'}</span>
                     </div>
-                    <span className="bg-blue-50 text-blue-500 text-[9px] font-black px-2 py-0.5 rounded-lg uppercase">{t.payment_method || t.paymentMethod}</span>
+                    {t.type === 'expense' ? (
+                        <span className="bg-red-50 text-red-500 text-[9px] font-black px-2 py-0.5 rounded-lg uppercase">KELUAR</span>
+                    ) : (
+                        <span className="bg-blue-50 text-blue-500 text-[9px] font-black px-2 py-0.5 rounded-lg uppercase">{t.payment_method || t.paymentMethod}</span>
+                    )}
                   </div>
                   <div className="flex justify-between items-center">
                     <div className="text-[10px] font-bold text-slate-500">
-                      {(t.items || []).length} Item • {(t.items && t.items[0]) ? t.items[0].name : 'Item'} {(t.items || []).length > 1 ? '...' : ''}
+                      {t.type === 'expense' ? (
+                         <span className="text-red-400">{t.description}</span>
+                      ) : (
+                         <>{(t.items || []).length} Item • {(t.items && t.items[0]) ? t.items[0].name : 'Item'} {(t.items || []).length > 1 ? '...' : ''}</>
+                      )}
                     </div>
-                    <span className="font-black text-slate-800 text-sm">Rp {(t.total || 0).toLocaleString()}</span>
+                    <span className={`font-black text-sm ${t.type === 'expense' ? 'text-red-500' : 'text-slate-800'}`}>
+                        {t.type === 'expense' ? '- ' : ''}Rp {(t.total || t.amount || 0).toLocaleString()}
+                    </span>
                   </div>
                   <div className="flex gap-2 pt-2 border-t border-slate-50">
-                    <button 
-                      onClick={() => { setLastReceipt(t); setShowReceipt(true); }}
-                      className="flex-1 flex items-center justify-center gap-2 py-2 bg-pink-50 text-pink-500 rounded-xl text-[10px] font-black"
-                    >
-                      <Printer size={14} />
-                      CETAK STRUK
-                    </button>
+                    {t.type !== 'expense' && (
+                        <button 
+                          onClick={() => { setLastReceipt(t); setShowReceipt(true); }}
+                          className="flex-1 flex items-center justify-center gap-2 py-2 bg-pink-50 text-pink-500 rounded-xl text-[10px] font-black"
+                        >
+                          <Printer size={14} />
+                          CETAK STRUK
+                        </button>
+                    )}
                     <button 
                       onClick={async () => {
-                        if (window.confirm('Hapus transaksi ini?')) {
-                          const { error } = await supabase.from('transactions').delete().eq('id', t.id);
+                        if (window.confirm('Hapus data ini?')) {
+                          const table = t.type === 'expense' ? 'expenses' : 'transactions';
+                          const { error } = await supabase.from(table).delete().eq('id', t.id);
                           if (error) alert('Gagal hapus: ' + error.message);
                           else fetchData();
                         }
@@ -1428,7 +1445,7 @@ function SendIcon() {
                   </div>
                 </div>
               ))}
-              {transactions.length === 0 && <p className="text-center py-10 text-slate-400 font-bold text-sm">Belum ada riwayat transaksi.</p>}
+              {historyData.length === 0 && <p className="text-center py-10 text-slate-400 font-bold text-sm">Belum ada riwayat transaksi/pengeluaran.</p>}
             </div>
           </div>
         )}
