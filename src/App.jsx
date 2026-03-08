@@ -65,7 +65,7 @@ function AppContent() {
   // --- Auth & Core Data State ---
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState(INITIAL_CATEGORIES);
+  const [categories, setCategories] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [settings, setSettings] = useState({
     storeName: 'A&M Store',
@@ -89,7 +89,16 @@ function AppContent() {
       if (transData) setTransactions(transData);
 
       const { data: settsData } = await supabase.from('settings').select('*').single();
-      if (settsData) setSettings(settsData);
+      if (settsData) {
+        setSettings(settsData);
+        if (settsData.categories && Array.isArray(settsData.categories)) {
+          setCategories(settsData.categories);
+        } else {
+          setCategories(INITIAL_CATEGORIES);
+        }
+      } else {
+        setCategories(INITIAL_CATEGORIES);
+      }
     } catch (err) {
       console.error('Fetch error:', err);
     } finally {
@@ -148,7 +157,11 @@ function AppContent() {
 
   const handleSaveSettings = async () => {
     if (window.confirm('Simpan perubahan pengaturan?')) {
-      const { error } = await supabase.from('settings').update(localSettings).eq('id', 1);
+      const { error } = await supabase.from('settings').update({
+        ...localSettings,
+        categories: localCategories
+      }).eq('id', 1);
+      
       if (error) {
         alert('Gagal simpan: ' + error.message);
       } else {
