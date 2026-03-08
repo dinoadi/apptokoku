@@ -83,6 +83,12 @@ function AppContent() {
   const [historyData, setHistoryData] = useState([]); // Unified transactions and expenses
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [newExpense, setNewExpense] = useState({ description: '', amount: '', category: 'Operasional' });
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // --- Fetch Data from Supabase ---
   const fetchData = async () => {
@@ -556,15 +562,24 @@ function SendIcon() {
           <div className="w-10 h-10 bg-pink-500 rounded-xl flex items-center justify-center text-white">
             <ShoppingCart size={24} />
           </div>
-          <span className="font-black text-xl tracking-tighter text-pink-500">{settings.storeName}</span>
+          <div>
+            <span className="font-black text-xl tracking-tighter text-pink-500 block leading-none">{settings.storeName}</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{format(currentTime, 'dd MMM yyyy')}</span>
+          </div>
         </div>
-        <button 
-          onClick={() => setIsLoggedIn(false)}
-          className="flex items-center gap-2 px-4 py-2 text-red-500 font-bold hover:bg-red-50 rounded-xl transition-all"
-        >
-          <LogOut size={20} />
-          <span className="hidden md:inline">Keluar</span>
-        </button>
+        <div className="flex items-center gap-4">
+            <div className="hidden md:flex flex-col items-end mr-2">
+                <span className="text-xs font-black text-slate-700">{format(currentTime, 'EEEE, HH:mm:ss')}</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Waktu Server</span>
+            </div>
+            <button 
+              onClick={() => setIsLoggedIn(false)}
+              className="flex items-center gap-2 px-4 py-2 text-red-500 font-bold hover:bg-red-50 rounded-xl transition-all"
+            >
+              <LogOut size={20} />
+              <span className="hidden md:inline">Keluar</span>
+            </button>
+        </div>
       </header>
 
       {/* Main Content */}
@@ -1107,33 +1122,39 @@ function SendIcon() {
               
               <div className="print-area space-y-6">
                 {/* Header */}
-                <div className="text-center space-y-1 pb-2">
-                  <h2 className="text-3xl font-black text-slate-800 tracking-tight uppercase">{settings.storeName}</h2>
-                  <p className="text-xs font-medium text-slate-500">{settings.address}</p>
-                  <p className="text-xs font-medium text-slate-500">Telp: {settings.phone}</p>
+                <div className="text-center pb-4 border-b-2 border-dashed border-slate-300">
+                  <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase mb-2">{settings.storeName}</h2>
+                  <div className="space-y-0.5">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{settings.address}</p>
+                    <p className="text-[10px] font-bold text-slate-500 tracking-widest">{settings.phone}</p>
+                  </div>
                 </div>
                 
                 {/* Info Transaksi */}
-                <div className="border-y-2 border-dashed border-slate-200 py-3 space-y-1">
-                  <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    <span>{lastReceipt.invoice}</span>
-                    <span>{format(new Date(lastReceipt.date), 'dd/MM/yy HH:mm')}</span>
+                <div className="py-4 space-y-1.5 border-b-2 border-dashed border-slate-300">
+                  <div className="flex justify-between text-xs font-bold text-slate-600 uppercase">
+                    <span>Invoice</span>
+                    <span className="text-slate-900">{lastReceipt.invoice}</span>
                   </div>
-                  <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    <span>Kasir: Admin</span>
-                    <span>Pelanggan: Umum</span>
+                  <div className="flex justify-between text-xs font-bold text-slate-600 uppercase">
+                    <span>Waktu</span>
+                    <span className="text-slate-900">{format(new Date(lastReceipt.date), 'dd/MM/yy HH:mm')}</span>
+                  </div>
+                  <div className="flex justify-between text-xs font-bold text-slate-600 uppercase">
+                    <span>Kasir</span>
+                    <span className="text-slate-900">Admin</span>
                   </div>
                 </div>
 
                 {/* Items */}
-                <div className="space-y-3 py-2">
+                <div className="py-4 space-y-3 border-b-2 border-dashed border-slate-300 min-h-[100px]">
                   {(lastReceipt.items || []).map((item, i) => (
-                    <div key={i} className="text-xs font-bold text-slate-800">
+                    <div key={i} className="text-sm font-bold text-slate-800">
                       <div className="flex justify-between items-start mb-1">
-                        <span className="flex-1 pr-2">{item.name}</span>
+                        <span className="flex-1 pr-4">{item.name}</span>
                         <span>Rp {((item.selling_price || item.sellingPrice || 0) * item.quantity).toLocaleString()}</span>
                       </div>
-                      <div className="text-[10px] text-slate-400 font-medium">
+                      <div className="text-xs text-slate-500 font-medium pl-2 border-l-2 border-slate-200">
                         {item.quantity} x @ Rp {(item.selling_price || item.sellingPrice || 0).toLocaleString()}
                       </div>
                     </div>
@@ -1141,43 +1162,50 @@ function SendIcon() {
                 </div>
 
                 {/* Total & Payment */}
-                <div className="border-t-2 border-dashed border-slate-200 pt-4 space-y-2">
-                  <div className="flex justify-between text-xs font-bold text-slate-500">
+                <div className="pt-4 space-y-3">
+                  <div className="flex justify-between text-sm font-bold text-slate-600">
                     <span>Subtotal</span>
                     <span>Rp {(lastReceipt?.subtotal || 0).toLocaleString()}</span>
                   </div>
                   {(lastReceipt?.discount || 0) > 0 && (
-                    <div className="flex justify-between text-xs font-bold text-red-500">
+                    <div className="flex justify-between text-sm font-bold text-red-500">
                       <span>Diskon</span>
                       <span>- Rp {(lastReceipt?.discount || 0).toLocaleString()}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-xl font-black text-slate-900 pt-2 border-t border-slate-100 mt-2">
-                    <span>TOTAL</span>
+                  <div className="flex justify-between text-3xl font-black text-slate-900 pt-3 border-t-2 border-slate-900 mt-2 items-center">
+                    <span className="text-lg">TOTAL</span>
                     <span>Rp {(lastReceipt?.total || 0).toLocaleString()}</span>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4 pt-4">
-                    <div className="text-left">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Bayar ({lastReceipt?.payment_method || lastReceipt?.paymentMethod || '-'})</p>
-                      <p className="font-black text-slate-800">Rp {(lastReceipt?.payment_amount || lastReceipt?.paymentAmount || 0).toLocaleString()}</p>
+                  <div className="grid grid-cols-2 gap-4 pt-6">
+                    <div className="text-left bg-slate-50 p-3 rounded-xl border border-slate-200">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Bayar ({lastReceipt?.payment_method || lastReceipt?.paymentMethod || '-'})</p>
+                      <p className="font-black text-slate-800 text-lg">Rp {(lastReceipt?.payment_amount || lastReceipt?.paymentAmount || 0).toLocaleString()}</p>
                     </div>
                     {(lastReceipt?.payment_method === 'Tunai' || lastReceipt?.paymentMethod === 'Tunai') && (
-                      <div className="text-right">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Kembali</p>
-                        <p className="font-black text-slate-800">Rp {Math.max(0, (lastReceipt?.payment_amount || lastReceipt?.paymentAmount || 0) - (lastReceipt?.total || 0)).toLocaleString()}</p>
+                      <div className="text-right bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Kembali</p>
+                        <p className="font-black text-slate-800 text-lg">Rp {Math.max(0, (lastReceipt?.payment_amount || lastReceipt?.paymentAmount || 0) - (lastReceipt?.total || 0)).toLocaleString()}</p>
                       </div>
                     )}
                   </div>
                 </div>
 
                 {/* Footer */}
-                <div className="text-center pt-6 space-y-4">
-                  <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest leading-relaxed">
-                    {settings.receiptFooter}
-                    <br />
+                <div className="text-center pt-8 space-y-4">
+                  <div className="w-full border-t-2 border-dashed border-slate-300 mb-4"></div>
+                  <p className="text-xs font-bold text-slate-600 uppercase tracking-widest leading-relaxed">
+                    {settings.receiptFooter || 'Terima Kasih'}
+                  </p>
+                  <p className="text-[10px] font-medium text-slate-400">
                     *** Simpan struk ini sebagai bukti pembayaran ***
                   </p>
+                  <div className="flex justify-center gap-2 pt-2 opacity-50">
+                     <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                     <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                     <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                  </div>
                 </div>
               </div>
 
