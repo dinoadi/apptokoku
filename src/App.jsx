@@ -88,6 +88,22 @@ function AppContent() {
       const { data: transData } = await supabase.from('transactions').select('*').order('date', { ascending: false });
       if (transData) setTransactions(transData);
 
+  const [expenses, setExpenses] = useState([]);
+  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [newExpense, setNewExpense] = useState({ description: '', amount: '', category: 'Operasional' });
+
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      const { data: prodData } = await supabase.from('products').select('*').order('name', { ascending: true });
+      if (prodData) setProducts(prodData);
+      
+      const { data: transData } = await supabase.from('transactions').select('*').order('date', { ascending: false });
+      if (transData) setTransactions(transData);
+
+      const { data: expData } = await supabase.from('expenses').select('*').order('date', { ascending: false });
+      if (expData) setExpenses(expData);
+      
       const { data: settsData } = await supabase.from('settings').select('*').single();
       if (settsData) {
         setSettings(settsData);
@@ -103,6 +119,29 @@ function AppContent() {
       console.error('Fetch error:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSaveExpense = async () => {
+    if (!newExpense.description || !newExpense.amount) {
+      alert('Deskripsi dan Jumlah harus diisi');
+      return;
+    }
+
+    const expenseData = {
+      description: newExpense.description,
+      amount: Number(newExpense.amount),
+      category: newExpense.category,
+      date: new Date().toISOString()
+    };
+
+    const { error } = await supabase.from('expenses').insert([expenseData]);
+    if (error) {
+      alert('Gagal simpan pengeluaran: ' + error.message);
+    } else {
+      setNewExpense({ description: '', amount: '', category: 'Operasional' });
+      setIsExpenseModalOpen(false);
+      fetchData();
     }
   };
 
@@ -325,12 +364,47 @@ function AppContent() {
     );
   }, [transactions, reportFilter]);
 
+  const filteredExpenses = useMemo(() => {
+    const now = new Date();
+    let start, end;
+    
+    if (reportFilter === 'today') {
+      start = startOfDay(now);
+      end = endOfDay(now);
+    } else if (reportFilter === '7days') {
+      start = startOfDay(subDays(now, 6));
+      end = endOfDay(now);
+    } else if (reportFilter === 'thismonth') {
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      end = endOfDay(now);
+    }
+    
+    return expenses.filter(e => 
+      isWithinInterval(new Date(e.date), { start, end })
+    );
+  }, [expenses, reportFilter]);
+
   const todayTransactions = transactions.filter(t => 
     isWithinInterval(new Date(t.date), { start: startOfDay(new Date()), end: endOfDay(new Date()) })
   );
+  
   const todaySales = todayTransactions.reduce((acc, t) => acc + (Number(t.total) || 0), 0);
   const lowStockProducts = products.filter(p => (Number(p.stock) || 0) <= 3);
   const stockValue = products.reduce((acc, p) => acc + ((Number(p.cost_price || p.costPrice) || 0) * (Number(p.stock) || 0)), 0);
+  
+  // Financial Calculations
+  const totalSalesPeriod = filteredTransactions.reduce((acc, t) => acc + (Number(t.total) || 0), 0);
+  const totalProfitPeriod = filteredTransactions.reduce((acc, t) => acc + (Number(t.profit) || 0), 0);
+  const totalItemsSoldPeriod = filteredTransactions.reduce((acc, t) => 
+    acc + (t.items || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)
+  , 0);
+  const totalExpensesPeriod = filteredExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
+  
+  // Cash on Hand (All Time) = Total Sales All Time - Total Expenses All Time
+  // Note: This is a simplified calculation. Ideally, it should be Opening Balance + Sales - Expenses.
+  const totalSalesAllTime = transactions.reduce((acc, t) => acc + (Number(t.total) || 0), 0);
+  const totalExpensesAllTime = expenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
+  const cashOnHand = totalSalesAllTime - totalExpensesAllTime;
 
   const bestSellers = useMemo(() => {
     const counts = {};
@@ -635,10 +709,11 @@ function SendIcon() {
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Kategori</label>
                     <select
-                      className="w-full p-3 bg-slate-50 rounded-xl border-2 border-transparent focus:border-pink-500 outline-none font-bold"
+                      className="w-full p-3 bg-slate-50 rounded-xl border-2 border-transparent focus:border-pink-500 outline-none font-bold appearance-none"
                       value={newProduct.category}
                       onChange={(e) => setNewProduct({...newProduct, category: e.target.value})}
                     >
+                      <option value="" disabled>Pilih Kategori</option>
                       {categories.map((c, i) => <option value={c} key={i}>{c}</option>)}
                     </select>
                   </div>
@@ -1299,29 +1374,54 @@ function SendIcon() {
               </div>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+              {/* Card Omzet */}
               <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
                 <div className="w-12 h-12 md:w-16 md:h-16 bg-green-50 text-green-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
-                  <ArrowUpCircle size={28} md:size={32} />
+                  <ArrowUpCircle size={28} />
                 </div>
                 <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Total Omzet</p>
-                <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {filteredTransactions.reduce((acc, t) => acc + (Number(t.total) || 0), 0).toLocaleString()}</h4>
+                <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {totalSalesPeriod.toLocaleString()}</h4>
               </div>
+
+              {/* Card Laba Bersih */}
               <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
                 <div className="w-12 h-12 md:w-16 md:h-16 bg-blue-50 text-blue-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
-                  <Percent size={28} md:size={32} />
+                  <Percent size={28} />
                 </div>
                 <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Laba Bersih</p>
-                <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {filteredTransactions.reduce((acc, t) => acc + (Number(t.profit) || 0), 0).toLocaleString()}</h4>
+                <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {totalProfitPeriod.toLocaleString()}</h4>
               </div>
+
+              {/* Card Pengeluaran */}
               <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-                <div className="w-12 h-12 md:w-16 md:h-16 bg-pink-50 text-pink-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
-                  <Package size={28} md:size={32} />
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-red-50 text-red-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
+                  <ArrowDownCircle size={28} />
                 </div>
-                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Produk Terjual</p>
-                <h4 className="text-xl md:text-3xl font-black text-slate-800">{filteredTransactions.reduce((acc, t) => acc + (t.items ? t.items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0) : 0), 0)} Pcs</h4>
+                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Pengeluaran</p>
+                <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {totalExpensesPeriod.toLocaleString()}</h4>
               </div>
-              <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+
+              {/* Card Cash on Hand */}
+              <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center ring-4 ring-pink-50">
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-pink-50 text-pink-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
+                  <Wallet size={28} />
+                </div>
+                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Cash on Hand</p>
+                <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {cashOnHand.toLocaleString()}</h4>
+                <p className="text-[9px] text-slate-400 mt-1">(Total Sepanjang Waktu)</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button 
+                onClick={() => setIsExpenseModalOpen(true)}
+                className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-2xl font-black shadow-lg shadow-red-100 flex items-center gap-2 text-sm uppercase tracking-wider"
+              >
+                <MinusCircle size={18} />
+                CATAT PENGELUARAN
+              </button>
+            </div>
                 <div className="w-12 h-12 md:w-16 md:h-16 bg-amber-50 text-amber-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
                   <Wallet size={28} md:size={32} />
                 </div>
@@ -1330,42 +1430,103 @@ function SendIcon() {
               </div>
             </div>
 
-            <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm">
-              <h3 className="text-lg md:text-xl font-black text-slate-800 mb-6 md:mb-8 flex items-center gap-3">
-                <FileText size={20} className="text-pink-500" />
-                Detail Analisis Laba Rugi ({reportFilter === 'today' ? 'Hari Ini' : reportFilter === '7days' ? '7 Hari' : 'Bulan Ini'})
-              </h3>
-              <div className="space-y-4 md:space-y-6">
-                <div className="flex justify-between items-center p-4 md:p-6 bg-slate-50 rounded-2xl md:rounded-3xl border border-slate-100">
-                  <div>
-                    <p className="font-black text-slate-800 text-sm md:text-base">Modal Barang (Stok)</p>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Total nilai beli seluruh stok saat ini</p>
+              <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm">
+                <h3 className="text-lg md:text-xl font-black text-slate-800 mb-6 md:mb-8 flex items-center gap-3">
+                  <FileText size={20} className="text-pink-500" />
+                  Detail Analisis Laba Rugi ({reportFilter === 'today' ? 'Hari Ini' : reportFilter === '7days' ? '7 Hari' : 'Bulan Ini'})
+                </h3>
+                <div className="space-y-4 md:space-y-6">
+                  <div className="flex justify-between items-center p-4 md:p-6 bg-slate-50 rounded-2xl md:rounded-3xl border border-slate-100">
+                    <div>
+                      <p className="font-black text-slate-800 text-sm md:text-base">Modal Barang (Stok)</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Total nilai beli seluruh stok saat ini</p>
+                    </div>
+                    <span className="text-base md:text-xl font-black text-amber-600">Rp {stockValue.toLocaleString()}</span>
                   </div>
-                  <span className="text-base md:text-xl font-black text-amber-600">Rp {stockValue.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center p-4 md:p-6 bg-slate-50 rounded-2xl md:rounded-3xl border border-slate-100">
-                  <div>
-                    <p className="font-black text-slate-800 text-sm md:text-base">Total Penjualan</p>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Uang masuk dalam periode terpilih</p>
+                  <div className="flex justify-between items-center p-4 md:p-6 bg-slate-50 rounded-2xl md:rounded-3xl border border-slate-100">
+                    <div>
+                      <p className="font-black text-slate-800 text-sm md:text-base">Total Penjualan</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Uang masuk dalam periode terpilih</p>
+                    </div>
+                    <span className="text-base md:text-xl font-black text-blue-500">Rp {totalSalesPeriod.toLocaleString()}</span>
                   </div>
-                  <span className="text-base md:text-xl font-black text-blue-500">Rp {filteredTransactions.reduce((acc, t) => acc + (Number(t.total) || 0), 0).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center p-4 md:p-6 bg-slate-50 rounded-2xl md:rounded-3xl border border-slate-100">
-                  <div>
-                    <p className="font-black text-slate-800 text-sm md:text-base">Modal Terjual (HPP)</p>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Biaya beli barang laku periode terpilih</p>
+                  <div className="flex justify-between items-center p-4 md:p-6 bg-slate-50 rounded-2xl md:rounded-3xl border border-slate-100">
+                    <div>
+                      <p className="font-black text-slate-800 text-sm md:text-base">Modal Terjual (HPP)</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Biaya beli barang laku periode terpilih</p>
+                    </div>
+                    <span className="text-base md:text-xl font-black text-red-400">Rp {(totalSalesPeriod - totalProfitPeriod).toLocaleString()}</span>
                   </div>
-                  <span className="text-base md:text-xl font-black text-red-400">Rp {filteredTransactions.reduce((acc, t) => acc + ((Number(t.total) || 0) - (Number(t.profit) || 0)), 0).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center p-6 md:p-8 bg-pink-500 text-white rounded-[30px] md:rounded-[40px] shadow-xl shadow-pink-100">
-                  <div>
-                    <p className="text-xl md:text-2xl font-black">Laba Bersih Periode</p>
-                    <p className="text-[10px] opacity-80 font-bold uppercase tracking-widest">Keuntungan murni dlm periode terpilih</p>
+                  <div className="flex justify-between items-center p-4 md:p-6 bg-slate-50 rounded-2xl md:rounded-3xl border border-slate-100">
+                    <div>
+                      <p className="font-black text-slate-800 text-sm md:text-base">Pengeluaran Operasional</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Biaya operasional periode terpilih</p>
+                    </div>
+                    <span className="text-base md:text-xl font-black text-red-500">Rp {totalExpensesPeriod.toLocaleString()}</span>
                   </div>
-                  <span className="text-2xl md:text-4xl font-black">Rp {filteredTransactions.reduce((acc, t) => acc + (Number(t.profit) || 0), 0).toLocaleString()}</span>
+                  <div className="flex justify-between items-center p-6 md:p-8 bg-pink-500 text-white rounded-[30px] md:rounded-[40px] shadow-xl shadow-pink-100">
+                    <div>
+                      <p className="text-xl md:text-2xl font-black">Laba Bersih Periode</p>
+                      <p className="text-[10px] opacity-80 font-bold uppercase tracking-widest">Keuntungan murni (Omzet - HPP - Pengeluaran)</p>
+                    </div>
+                    <span className="text-2xl md:text-4xl font-black">Rp {(totalProfitPeriod - totalExpensesPeriod).toLocaleString()}</span>
+                  </div>
                 </div>
               </div>
             </div>
+
+            {/* Expense Modal */}
+            {isExpenseModalOpen && (
+              <div className="fixed inset-0 z-[70] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+                <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 md:p-8 space-y-4 my-auto">
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-xl md:text-2xl font-black text-slate-800">Catat Pengeluaran</h3>
+                    <button onClick={() => setIsExpenseModalOpen(false)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl">
+                      <X size={20} />
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Deskripsi</label>
+                      <input
+                        className="w-full p-3 bg-slate-50 rounded-xl border-2 border-transparent focus:border-pink-500 outline-none font-bold"
+                        value={newExpense.description}
+                        onChange={(e) => setNewExpense({...newExpense, description: e.target.value})}
+                        placeholder="Contoh: Beli Token Listrik / Beli Daster Baru"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Jumlah (Rp)</label>
+                      <input
+                        type="number"
+                        className="w-full p-3 bg-slate-50 rounded-xl border-2 border-transparent focus:border-pink-500 outline-none font-bold"
+                        value={newExpense.amount}
+                        onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Kategori</label>
+                      <select
+                        className="w-full p-3 bg-slate-50 rounded-xl border-2 border-transparent focus:border-pink-500 outline-none font-bold appearance-none"
+                        value={newExpense.category}
+                        onChange={(e) => setNewExpense({...newExpense, category: e.target.value})}
+                      >
+                        <option value="Operasional">Operasional (Listrik, Air, Bensin)</option>
+                        <option value="Restock">Belanja Barang (Restock)</option>
+                        <option value="Lainnya">Lainnya</option>
+                      </select>
+                    </div>
+                    <button
+                      onClick={handleSaveExpense}
+                      className="w-full py-4 bg-pink-500 hover:bg-pink-600 text-white rounded-2xl font-black shadow-lg shadow-pink-200 uppercase tracking-widest mt-4"
+                    >
+                      SIMPAN PENGELUARAN
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
