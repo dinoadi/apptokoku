@@ -79,7 +79,9 @@ function AppContent() {
   });
 
   const [isLoading, setIsLoading] = useState(true);
-  const [expenses, setExpenses] = useState([]); // Kept to avoid undefined errors in existing code
+  const [expenses, setExpenses] = useState([]); 
+  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [newExpense, setNewExpense] = useState({ description: '', amount: '', category: 'Operasional' });
 
   // --- Fetch Data from Supabase ---
   const fetchData = async () => {
@@ -120,6 +122,29 @@ function AppContent() {
       setTransactions(prev => prev || []);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSaveExpense = async () => {
+    if (!newExpense.description || !newExpense.amount) {
+      alert('Deskripsi dan Jumlah harus diisi');
+      return;
+    }
+
+    const expenseData = {
+      description: newExpense.description,
+      amount: Number(newExpense.amount),
+      category: newExpense.category,
+      date: new Date().toISOString()
+    };
+
+    const { error } = await supabase.from('expenses').insert([expenseData]);
+    if (error) {
+      alert('Gagal simpan pengeluaran: ' + error.message);
+    } else {
+      setNewExpense({ description: '', amount: '', category: 'Operasional' });
+      setIsExpenseModalOpen(false);
+      fetchData();
     }
   };
 
@@ -365,9 +390,10 @@ function AppContent() {
     acc + (t.items || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)
   , 0);
   
-  // Cash on Hand (All Time) - Calculated from total sales since expenses are currently disabled
+  // Cash on Hand (All Time) = Total Sales All Time - Total Expenses All Time
   const totalSalesAllTime = (transactions || []).reduce((acc, t) => acc + (Number(t.total) || 0), 0);
-  const cashOnHand = totalSalesAllTime; 
+  const totalExpensesAllTime = (expenses || []).reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
+  const cashOnHand = totalSalesAllTime - totalExpensesAllTime;
 
   const salesHistory7Days = useMemo(() => {
     return [...Array(7)].map((_, i) => {
@@ -840,6 +866,12 @@ function SendIcon() {
                     <ShoppingCart size={24} className="text-pink-500" />
                     Kasir
                  </h3>
+                 <button 
+                  onClick={() => setIsExpenseModalOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-all text-xs md:text-sm"
+                >
+                  <MinusCircle size={18} /> Catat Pengeluaran
+                </button>
               </div>
 
               <div className="flex gap-2">
@@ -1425,6 +1457,15 @@ function SendIcon() {
                 <h4 className="text-xl md:text-3xl font-black text-slate-800">{totalItemsSoldPeriod} Pcs</h4>
               </div>
 
+              {/* Card Modal Barang */}
+              <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-amber-50 text-amber-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
+                  <Package size={28} />
+                </div>
+                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Modal Barang</p>
+                <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {stockValue.toLocaleString()}</h4>
+              </div>
+
               {/* Card Cash on Hand */}
               <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center ring-4 ring-pink-50">
                 <div className="w-12 h-12 md:w-16 md:h-16 bg-pink-50 text-pink-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
@@ -1495,13 +1536,6 @@ function SendIcon() {
                       value={localSettings.phone}
                       onChange={(e) => setLocalSettings({...localSettings, phone: e.target.value})}
                     />
-                  </div>
-                  <div className="space-y-1.5 md:space-y-2">
-                    <label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Modal Barang (Otomatis)</label>
-                    <div className="w-full p-3 md:p-4 bg-slate-100 rounded-xl md:rounded-2xl border-2 border-transparent font-black text-sm md:text-base text-pink-600 flex justify-between items-center">
-                      <span>Rp {stockValue.toLocaleString()}</span>
-                      <span className="text-[8px] md:text-[10px] bg-white px-2 py-0.5 rounded-lg text-slate-400">Dihitung dari Stok</span>
-                    </div>
                   </div>
                 </div>
                 <div className="space-y-1.5 md:space-y-2">
@@ -1612,6 +1646,60 @@ function SendIcon() {
           ))}
         </div>
       </nav>
+
+      {/* Expense Modal - Global */}
+      {isExpenseModalOpen && (
+              <div className="fixed inset-0 z-[120] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+                <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 md:p-8 space-y-4 my-auto">
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-xl md:text-2xl font-black text-slate-800">Catat Pengeluaran</h3>
+                    <button onClick={() => setIsExpenseModalOpen(false)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl">
+                      <X size={20} />
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Deskripsi</label>
+                      <input
+                        className="w-full p-3 bg-slate-50 rounded-xl border-2 border-transparent focus:border-pink-500 outline-none font-bold"
+                        value={newExpense.description}
+                        onChange={(e) => setNewExpense({...newExpense, description: e.target.value})}
+                        placeholder="Contoh: Beli Token Listrik / Beli Daster Baru"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Jumlah (Rp)</label>
+                      <input
+                        type="number"
+                        className="w-full p-3 bg-slate-50 rounded-xl border-2 border-transparent focus:border-pink-500 outline-none font-bold"
+                        value={newExpense.amount}
+                        onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Kategori</label>
+                      <select
+                        className="w-full p-3 bg-slate-50 rounded-xl border-2 border-transparent focus:border-pink-500 outline-none font-bold appearance-none"
+                        value={newExpense.category}
+                        onChange={(e) => setNewExpense({...newExpense, category: e.target.value})}
+                      >
+                        <option value="Operasional">Operasional (Listrik, Air, Bensin)</option>
+                        <option value="Restock">Belanja Barang (Restock)</option>
+                        <option value="Lainnya">Lainnya</option>
+                      </select>
+                    </div>
+                    <button
+                      onClick={handleSaveExpense}
+                      className="w-full py-4 bg-pink-500 hover:bg-pink-600 text-white rounded-2xl font-black shadow-lg shadow-pink-200 uppercase tracking-widest mt-4"
+                    >
+                      SIMPAN PENGELUARAN
+                    </button>
+                  </div>
+                </div>
+              </div>
+      )}
+
       </div>
     </div>
   );
