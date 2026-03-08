@@ -230,7 +230,7 @@ function AppContent() {
     }).filter(item => item.quantity > 0));
   };
 
-  const cartSubtotal = cart.reduce((acc, item) => acc + ((item.selling_price || 0) * item.quantity), 0);
+  const cartSubtotal = cart.reduce((acc, item) => acc + ((item.selling_price || item.sellingPrice || 0) * item.quantity), 0);
   const cartTotal = Math.max(0, cartSubtotal - (Number(discount) || 0));
 
   const handleCheckout = (override = {}) => {
@@ -253,7 +253,7 @@ function AppContent() {
       total: cartTotal,
       payment_method: selectedPaymentMethod,
       payment_amount: finalPaymentAmount,
-      profit: cart.reduce((acc, item) => acc + (((item.selling_price || 0) - (item.cost_price || 0)) * item.quantity), 0) - finalDiscount
+      profit: cart.reduce((acc, item) => acc + (((item.selling_price || item.sellingPrice || 0) - (item.cost_price || item.costPrice || 0)) * item.quantity), 0) - finalDiscount
     };
 
     // Update Stock
@@ -317,7 +317,7 @@ function AppContent() {
   );
   const todaySales = todayTransactions.reduce((acc, t) => acc + (Number(t.total) || 0), 0);
   const lowStockProducts = products.filter(p => (Number(p.stock) || 0) <= 3);
-  const stockValue = products.reduce((acc, p) => acc + ((Number(p.cost_price) || 0) * (Number(p.stock) || 0)), 0);
+  const stockValue = products.reduce((acc, p) => acc + ((Number(p.cost_price || p.costPrice) || 0) * (Number(p.stock) || 0)), 0);
 
   const bestSellers = useMemo(() => {
     const counts = {};
@@ -777,7 +777,7 @@ function SendIcon() {
                         )}
                       </div>
                       <p className="font-black text-slate-800 text-xs md:text-sm mb-1 line-clamp-2 flex-1 leading-tight">{p.name}</p>
-                      <p className="text-pink-500 font-black text-sm">Rp {(p.selling_price || 0).toLocaleString()}</p>
+                      <p className="text-pink-500 font-black text-sm">Rp {(p.selling_price || p.sellingPrice || 0).toLocaleString()}</p>
                       <div className="mt-2 flex justify-between items-center">
                         <span className={`text-[9px] font-bold px-2 py-0.5 rounded-lg ${p.stock <= 3 ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}`}>
                           Stok {p.stock}
@@ -816,7 +816,7 @@ function SendIcon() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="font-black text-slate-800 text-xs leading-tight mb-1 truncate">{item.name}</p>
-                              <p className="text-[10px] font-bold text-slate-400">Rp {(item.selling_price || 0).toLocaleString()}</p>
+                              <p className="text-[10px] font-bold text-slate-400">Rp {(item.selling_price || item.sellingPrice || 0).toLocaleString()}</p>
                             </div>
                             <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200">
                               <button onClick={() => updateCartQty(item.id, -1)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-pink-500 transition-colors">
@@ -949,10 +949,10 @@ function SendIcon() {
                   <div key={i} className="text-xs font-bold">
                     <div className="flex justify-between text-slate-800">
                       <span>{item.name}</span>
-                      <span>Rp {((item.selling_price || 0) * item.quantity).toLocaleString()}</span>
+                      <span>Rp {((item.selling_price || item.sellingPrice || 0) * item.quantity).toLocaleString()}</span>
                     </div>
                     <div className="text-slate-400 text-[10px]">
-                      {item.quantity} x {(item.selling_price || 0).toLocaleString()}
+                      {item.quantity} x {(item.selling_price || item.sellingPrice || 0).toLocaleString()}
                     </div>
                   </div>
                 ))}
@@ -1042,8 +1042,8 @@ function SendIcon() {
                         <td className="px-8 py-6">
                           <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold uppercase">{p.category}</span>
                         </td>
-                        <td className="px-8 py-6 font-bold text-slate-500">Rp {(p.cost_price || 0).toLocaleString()}</td>
-                        <td className="px-8 py-6 font-bold text-pink-500">Rp {(p.selling_price || 0).toLocaleString()}</td>
+                        <td className="px-8 py-6 font-bold text-slate-500">Rp {(p.cost_price || p.costPrice || 0).toLocaleString()}</td>
+                        <td className="px-8 py-6 font-bold text-pink-500">Rp {(p.selling_price || p.sellingPrice || 0).toLocaleString()}</td>
                         <td className="px-8 py-6">
                           <span className={`font-black ${p.stock <= 3 ? 'text-red-500' : 'text-slate-800'}`}>{p.stock} pcs</span>
                         </td>
