@@ -57,7 +57,9 @@ class ErrorBoundary extends React.Component {
 
 export default function App() {
   return (
-    <AppContent />
+    <ErrorBoundary>
+      <AppContent />
+    </ErrorBoundary>
   );
 }
 
@@ -77,21 +79,11 @@ function AppContent() {
   });
 
   const [isLoading, setIsLoading] = useState(true);
-
-  // --- Fetch Data from Supabase ---
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      const { data: prodData } = await supabase.from('products').select('*').order('name');
-      if (prodData) setProducts(prodData);
-
-      const { data: transData } = await supabase.from('transactions').select('*').order('date', { ascending: false });
-      if (transData) setTransactions(transData);
-
   const [expenses, setExpenses] = useState([]);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [newExpense, setNewExpense] = useState({ description: '', amount: '', category: 'Operasional' });
 
+  // --- Fetch Data from Supabase ---
   const fetchData = async () => {
     try {
       setIsLoading(true);
@@ -1422,13 +1414,6 @@ function SendIcon() {
                 CATAT PENGELUARAN
               </button>
             </div>
-                <div className="w-12 h-12 md:w-16 md:h-16 bg-amber-50 text-amber-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
-                  <Wallet size={28} md:size={32} />
-                </div>
-                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Modal Barang</p>
-                <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {stockValue.toLocaleString()}</h4>
-              </div>
-            </div>
 
               <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm">
                 <h3 className="text-lg md:text-xl font-black text-slate-800 mb-6 md:mb-8 flex items-center gap-3">
@@ -1473,7 +1458,6 @@ function SendIcon() {
                   </div>
                 </div>
               </div>
-            </div>
 
             {/* Expense Modal */}
             {isExpenseModalOpen && (
