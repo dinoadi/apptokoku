@@ -97,15 +97,23 @@ function AppContent() {
       setExpenses(expData || []);
       
       const { data: settsData } = await supabase.from('settings').select('*').single();
+      
+      // Collect unique categories from products
+      const productCategories = new Set((prodData || []).map(p => p.category).filter(Boolean));
+      
       if (settsData) {
         setSettings(settsData);
         if (settsData.categories && Array.isArray(settsData.categories)) {
-          setCategories(settsData.categories);
+          // Merge settings categories with product categories
+          settsData.categories.forEach(c => productCategories.add(c));
+          setCategories(Array.from(productCategories));
         } else {
-          setCategories(INITIAL_CATEGORIES);
+          INITIAL_CATEGORIES.forEach(c => productCategories.add(c));
+          setCategories(Array.from(productCategories));
         }
       } else {
-        setCategories(INITIAL_CATEGORIES);
+        INITIAL_CATEGORIES.forEach(c => productCategories.add(c));
+        setCategories(Array.from(productCategories));
       }
     } catch (err) {
       console.error('Fetch error:', err);
@@ -1459,79 +1467,24 @@ function SendIcon() {
                 <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {totalSalesPeriod.toLocaleString()}</h4>
               </div>
 
-              {/* Card Laba Bersih */}
+              {/* Card Produk Terjual */}
               <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-                <div className="w-12 h-12 md:w-16 md:h-16 bg-blue-50 text-blue-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
-                  <Percent size={28} />
-                </div>
-                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Laba Bersih</p>
-                <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {totalProfitPeriod.toLocaleString()}</h4>
-              </div>
-
-              {/* Card Pengeluaran */}
-              <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-                <div className="w-12 h-12 md:w-16 md:h-16 bg-red-50 text-red-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
-                  <ArrowDownCircle size={28} />
-                </div>
-                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Pengeluaran</p>
-                <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {totalExpensesPeriod.toLocaleString()}</h4>
-              </div>
-
-              {/* Card Cash on Hand */}
-              <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center ring-4 ring-pink-50">
                 <div className="w-12 h-12 md:w-16 md:h-16 bg-pink-50 text-pink-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
-                  <Wallet size={28} />
+                  <Package size={28} />
                 </div>
-                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Cash on Hand</p>
-                <h4 className="text-xl md:text-3xl font-black text-slate-800">Rp {cashOnHand.toLocaleString()}</h4>
-                <p className="text-[9px] text-slate-400 mt-1">(Total Sepanjang Waktu)</p>
+                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Produk Terjual</p>
+                <h4 className="text-xl md:text-3xl font-black text-slate-800">{totalItemsSoldPeriod} Pcs</h4>
+              </div>
+
+              {/* Card Transaksi */}
+              <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-amber-50 text-amber-500 rounded-2xl md:rounded-3xl flex items-center justify-center mb-4 md:mb-6">
+                  <History size={28} />
+                </div>
+                <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Transaksi</p>
+                <h4 className="text-xl md:text-3xl font-black text-slate-800">{filteredTransactions.length} Data</h4>
               </div>
             </div>
-
-            <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] border border-slate-100 shadow-sm">
-                <h3 className="text-lg md:text-xl font-black text-slate-800 mb-6 md:mb-8 flex items-center gap-3">
-                  <FileText size={20} className="text-pink-500" />
-                  Detail Analisis Laba Rugi ({reportFilter === 'today' ? 'Hari Ini' : reportFilter === '7days' ? '7 Hari' : 'Bulan Ini'})
-                </h3>
-                <div className="space-y-4 md:space-y-6">
-                  <div className="flex justify-between items-center p-4 md:p-6 bg-slate-50 rounded-2xl md:rounded-3xl border border-slate-100">
-                    <div>
-                      <p className="font-black text-slate-800 text-sm md:text-base">Modal Barang (Stok)</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Total nilai beli seluruh stok saat ini</p>
-                    </div>
-                    <span className="text-base md:text-xl font-black text-amber-600">Rp {stockValue.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-4 md:p-6 bg-slate-50 rounded-2xl md:rounded-3xl border border-slate-100">
-                    <div>
-                      <p className="font-black text-slate-800 text-sm md:text-base">Total Penjualan</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Uang masuk dalam periode terpilih</p>
-                    </div>
-                    <span className="text-base md:text-xl font-black text-blue-500">Rp {totalSalesPeriod.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-4 md:p-6 bg-slate-50 rounded-2xl md:rounded-3xl border border-slate-100">
-                    <div>
-                      <p className="font-black text-slate-800 text-sm md:text-base">Modal Terjual (HPP)</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Biaya beli barang laku periode terpilih</p>
-                    </div>
-                    <span className="text-base md:text-xl font-black text-red-400">Rp {(totalSalesPeriod - totalProfitPeriod).toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-4 md:p-6 bg-slate-50 rounded-2xl md:rounded-3xl border border-slate-100">
-                    <div>
-                      <p className="font-black text-slate-800 text-sm md:text-base">Pengeluaran Operasional</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Biaya operasional periode terpilih</p>
-                    </div>
-                    <span className="text-base md:text-xl font-black text-red-500">Rp {totalExpensesPeriod.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-6 md:p-8 bg-pink-500 text-white rounded-[30px] md:rounded-[40px] shadow-xl shadow-pink-100">
-                    <div>
-                      <p className="text-xl md:text-2xl font-black">Laba Bersih Periode</p>
-                      <p className="text-[10px] opacity-80 font-bold uppercase tracking-widest">Keuntungan murni (Omzet - HPP - Pengeluaran)</p>
-                    </div>
-                    <span className="text-2xl md:text-4xl font-black">Rp {(totalProfitPeriod - totalExpensesPeriod).toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-
           </div>
         )}
 
