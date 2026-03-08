@@ -8,7 +8,7 @@ import {
   Filter, Printer, Percent, Tag,
   Clock, CheckCircle2, AlertCircle, Camera
 } from 'lucide-react';
-import { useLocalStorage } from './hooks/useLocalStorage';
+import { supabase } from './supabaseClient';
 import { format, subDays, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 
 const INITIAL_PRODUCTS = [
@@ -21,11 +21,11 @@ const INITIAL_CATEGORIES = ['Daster Bali', 'Daster Rayon', 'Daster Jumbo', 'Dast
 
 export default function App() {
   // --- Auth & Core Data State ---
-  const [isLoggedIn, setIsLoggedIn] = useLocalStorage('pos_is_logged_in', false);
-  const [products, setProducts] = useLocalStorage('pos_products', INITIAL_PRODUCTS);
-  const [categories, setCategories] = useLocalStorage('pos_categories', INITIAL_CATEGORIES);
-  const [transactions, setTransactions] = useLocalStorage('pos_transactions', []);
-  const [settings, setSettings] = useLocalStorage('pos_settings', {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState(INITIAL_CATEGORIES);
+  const [transactions, setTransactions] = useState([]);
+  const [settings, setSettings] = useState({
     storeName: 'A&M Store',
     address: 'Jl. Raya No. 123, Jakarta',
     phone: '08123456789',
@@ -34,7 +34,42 @@ export default function App() {
     discountDefault: 0
   });
 
-  // --- POS / UI State ---
+  const [isLoading, setIsLoading] = useState(true);
+
+  // --- Fetch Data from Supabase ---
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const { data: prodData } = await supabase.from('products').select('*').order('name');
+      if (prodData) setProducts(prodData);
+
+      const { data: transData } = await supabase.from('transactions').select('*').order('date', { ascending: false });
+      if (transData) setTransactions(transData);
+
+      const { data: settsData } = await supabase.from('settings').select('*').single();
+      if (settsData) setSettings(settsData);
+    } catch (err) {
+      console.error('Fetch error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    if ((formData.get('username') === 'admin' && formData.get('password') === 'admin123') || 
+        (formData.get('username') === 'admin' && formData.get('password') === 'admin')) {
+      setIsLoggedIn(true);
+    } else {
+      alert('Login Gagal!');
+    }
+  };
+
   const [cart, setCart] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [skuInput, setSkuInput] = useState('');
@@ -62,11 +97,16 @@ export default function App() {
     }
   }, [activeTab, settings, categories]);
 
-  const handleSaveSettings = () => {
+  const handleSaveSettings = async () => {
     if (window.confirm('Simpan perubahan pengaturan?')) {
-      setSettings(localSettings);
-      setCategories(localCategories);
-      alert('Pengaturan berhasil disimpan!');
+      const { error } = await supabase.from('settings').update(localSettings).eq('id', 1);
+      if (error) {
+        alert('Gagal simpan: ' + error.message);
+      } else {
+        setSettings(localSettings);
+        setCategories(localCategories);
+        alert('Pengaturan berhasil disimpan!');
+      }
     }
   };
 
@@ -95,8 +135,8 @@ export default function App() {
     setEditingProduct(product);
     setNewProduct({
       name: product.name,
-      sellingPrice: product.sellingPrice,
-      costPrice: product.costPrice,
+      sellingPrice: product.selling_price,
+      costPrice: product.cost_price,
       stock: product.stock,
       category: product.category,
       variants: product.variants,
@@ -110,17 +150,6 @@ export default function App() {
     setIsAddProductOpen(false);
     setEditingProduct(null);
     setNewProduct({ name: '', sellingPrice: '', costPrice: '', stock: '', category: categories[0] || '', variants: '', sku: '', image: null });
-  };
-
-  // --- Login Handler ---
-  const handleLogin = (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    if (formData.get('username') === 'admin' && formData.get('password') === 'admin') {
-      setIsLoggedIn(true);
-    } else {
-      alert('Login Gagal! (admin/admin)');
-    }
   };
 
   // --- POS Logic ---
@@ -152,7 +181,7 @@ export default function App() {
     }).filter(item => item.quantity > 0));
   };
 
-  const cartSubtotal = cart.reduce((acc, item) => acc + (item.sellingPrice * item.quantity), 0);
+  const cartSubtotal = cart.reduce((acc, item) => acc + ((item.selling_price || 0) * item.quantity), 0);
   const cartTotal = Math.max(0, cartSubtotal - (Number(discount) || 0));
 
   const handleCheckout = (override = {}) => {
@@ -167,31 +196,44 @@ export default function App() {
     }
 
     const newTransaction = {
-      id: Date.now(),
       invoice: `INV-${Date.now().toString().slice(-6)}`,
       date: new Date().toISOString(),
       items: cart,
       subtotal: cartSubtotal,
       discount: finalDiscount,
       total: cartTotal,
-      paymentMethod: selectedPaymentMethod,
-      paymentAmount: finalPaymentAmount,
-      profit: cart.reduce((acc, item) => acc + ((item.sellingPrice - item.costPrice) * item.quantity), 0) - finalDiscount
+      payment_method: selectedPaymentMethod,
+      payment_amount: finalPaymentAmount,
+      profit: cart.reduce((acc, item) => acc + (((item.selling_price || 0) - (item.cost_price || 0)) * item.quantity), 0) - finalDiscount
     };
 
     // Update Stock
-    setProducts(products.map(p => {
-      const cartItem = cart.find(item => item.id === p.id);
-      return cartItem ? { ...p, stock: p.stock - cartItem.quantity } : p;
-    }));
+    const updateStock = async () => {
+      for (const item of cart) {
+        const product = products.find(p => p.id === item.id);
+        if (product) {
+          await supabase.from('products').update({ stock: product.stock - item.quantity }).eq('id', item.id);
+        }
+      }
+    };
 
-    setTransactions([newTransaction, ...transactions]);
-    setLastReceipt(newTransaction);
-    setCart([]);
-    setDiscount(0);
-    setPaymentAmount('');
-    setIsCheckingOut(false);
-    setShowReceipt(true);
+    const saveTransaction = async () => {
+      const { data, error } = await supabase.from('transactions').insert([newTransaction]).select();
+      if (error) {
+        alert('Gagal simpan transaksi: ' + error.message);
+      } else {
+        await updateStock();
+        setLastReceipt(data[0]);
+        fetchData();
+        setCart([]);
+        setDiscount(0);
+        setPaymentAmount('');
+        setIsCheckingOut(false);
+        setShowReceipt(true);
+      }
+    };
+
+    saveTransaction();
   };
 
   // --- Dashboard & Report Data ---
@@ -220,7 +262,7 @@ export default function App() {
   );
   const todaySales = todayTransactions.reduce((acc, t) => acc + (Number(t.total) || 0), 0);
   const lowStockProducts = products.filter(p => (Number(p.stock) || 0) <= 3);
-  const stockValue = products.reduce((acc, p) => acc + ((Number(p.costPrice) || 0) * (Number(p.stock) || 0)), 0);
+  const stockValue = products.reduce((acc, p) => acc + ((Number(p.cost_price) || 0) * (Number(p.stock) || 0)), 0);
 
   const bestSellers = useMemo(() => {
     const counts = {};
@@ -580,38 +622,32 @@ function SendIcon() {
                   BATAL
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (!newProduct.name || !newProduct.sellingPrice) {
                       alert('Nama dan Harga Jual wajib diisi');
                       return;
                     }
 
+                    const productData = {
+                      name: newProduct.name,
+                      selling_price: Number(newProduct.sellingPrice) || 0,
+                      cost_price: Number(newProduct.costPrice) || 0,
+                      stock: Number(newProduct.stock) || 0,
+                      category: newProduct.category || categories[0] || '',
+                      variants: newProduct.variants || '',
+                      sku: newProduct.sku?.trim() || ('PRD-' + Date.now().toString().slice(-4)),
+                      image: newProduct.image
+                    };
+
                     if (editingProduct) {
-                      setProducts(products.map(p => p.id === editingProduct.id ? {
-                        ...p,
-                        name: newProduct.name,
-                        sellingPrice: Number(newProduct.sellingPrice) || 0,
-                        costPrice: Number(newProduct.costPrice) || 0,
-                        stock: Number(newProduct.stock) || 0,
-                        category: newProduct.category || categories[0] || '',
-                        variants: newProduct.variants || '',
-                        sku: newProduct.sku?.trim() || p.sku,
-                        image: newProduct.image
-                      } : p));
+                      const { error } = await supabase.from('products').update(productData).eq('id', editingProduct.id);
+                      if (error) alert('Gagal update: ' + error.message);
                     } else {
-                      const item = {
-                        id: Date.now(),
-                        name: newProduct.name,
-                        sellingPrice: Number(newProduct.sellingPrice) || 0,
-                        costPrice: Number(newProduct.costPrice) || 0,
-                        stock: Number(newProduct.stock) || 0,
-                        category: newProduct.category || categories[0] || '',
-                        variants: newProduct.variants || '',
-                        sku: newProduct.sku?.trim() || ('PRD-' + Date.now().toString().slice(-4)),
-                        image: newProduct.image || null
-                      };
-                      setProducts([...products, item]);
+                      const { error } = await supabase.from('products').insert([productData]);
+                      if (error) alert('Gagal simpan: ' + error.message);
                     }
+                    
+                    fetchData();
                     handleCloseProductModal();
                   }}
                   className="py-3 bg-pink-500 hover:bg-pink-600 text-white rounded-xl font-black"
@@ -675,7 +711,7 @@ function SendIcon() {
                         )}
                       </div>
                       <p className="font-black text-slate-800 text-xs md:text-sm mb-1 line-clamp-2 flex-1 leading-tight">{p.name}</p>
-                      <p className="text-pink-500 font-black text-sm">Rp {p.sellingPrice.toLocaleString()}</p>
+                      <p className="text-pink-500 font-black text-sm">Rp {(p.selling_price || 0).toLocaleString()}</p>
                       <div className="mt-2 flex justify-between items-center">
                         <span className={`text-[9px] font-bold px-2 py-0.5 rounded-lg ${p.stock <= 3 ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}`}>
                           Stok {p.stock}
@@ -714,7 +750,7 @@ function SendIcon() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="font-black text-slate-800 text-xs leading-tight mb-1 truncate">{item.name}</p>
-                              <p className="text-[10px] font-bold text-slate-400">Rp {item.sellingPrice.toLocaleString()}</p>
+                              <p className="text-[10px] font-bold text-slate-400">Rp {(item.selling_price || 0).toLocaleString()}</p>
                             </div>
                             <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200">
                               <button onClick={() => updateCartQty(item.id, -1)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-pink-500 transition-colors">
@@ -847,10 +883,10 @@ function SendIcon() {
                   <div key={i} className="text-xs font-bold">
                     <div className="flex justify-between text-slate-800">
                       <span>{item.name}</span>
-                      <span>Rp {(item.sellingPrice * item.quantity).toLocaleString()}</span>
+                      <span>Rp {((item.selling_price || 0) * item.quantity).toLocaleString()}</span>
                     </div>
                     <div className="text-slate-400 text-[10px]">
-                      {item.quantity} x {item.sellingPrice.toLocaleString()}
+                      {item.quantity} x {(item.selling_price || 0).toLocaleString()}
                     </div>
                   </div>
                 ))}
@@ -940,8 +976,8 @@ function SendIcon() {
                         <td className="px-8 py-6">
                           <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold uppercase">{p.category}</span>
                         </td>
-                        <td className="px-8 py-6 font-bold text-slate-500">Rp {p.costPrice.toLocaleString()}</td>
-                        <td className="px-8 py-6 font-bold text-pink-500">Rp {p.sellingPrice.toLocaleString()}</td>
+                        <td className="px-8 py-6 font-bold text-slate-500">Rp {(p.cost_price || 0).toLocaleString()}</td>
+                        <td className="px-8 py-6 font-bold text-pink-500">Rp {(p.selling_price || 0).toLocaleString()}</td>
                         <td className="px-8 py-6">
                           <span className={`font-black ${p.stock <= 3 ? 'text-red-500' : 'text-slate-800'}`}>{p.stock} pcs</span>
                         </td>
@@ -950,7 +986,13 @@ function SendIcon() {
                             <button onClick={() => handleOpenEditProduct(p)} className="p-2 text-slate-300 hover:text-blue-500 transition-all">
                               <Edit size={18} />
                             </button>
-                            <button onClick={() => setProducts(products.filter(item => item.id !== p.id))} className="p-2 text-slate-300 hover:text-red-500 transition-all">
+                            <button onClick={async () => {
+                              if (window.confirm('Hapus produk ini?')) {
+                                const { error } = await supabase.from('products').delete().eq('id', p.id);
+                                if (error) alert('Gagal hapus: ' + error.message);
+                                else fetchData();
+                              }
+                            }} className="p-2 text-slate-300 hover:text-red-500 transition-all">
                               <Trash2 size={18} />
                             </button>
                           </div>
@@ -1047,7 +1089,13 @@ function SendIcon() {
                             <button onClick={() => { setLastReceipt(t); setShowReceipt(true); }} className="p-2 text-slate-300 hover:text-pink-500 transition-all">
                               <Printer size={18} />
                             </button>
-                            <button onClick={() => setTransactions(transactions.filter(item => item.id !== t.id))} className="p-2 text-slate-300 hover:text-red-500 transition-all">
+                            <button onClick={async () => {
+                              if (window.confirm('Hapus transaksi ini?')) {
+                                const { error } = await supabase.from('transactions').delete().eq('id', t.id);
+                                if (error) alert('Gagal hapus: ' + error.message);
+                                else fetchData();
+                              }
+                            }} className="p-2 text-slate-300 hover:text-red-500 transition-all">
                               <Trash2 size={18} />
                             </button>
                           </div>
@@ -1090,7 +1138,13 @@ function SendIcon() {
                       CETAK STRUK
                     </button>
                     <button 
-                      onClick={() => setTransactions(transactions.filter(item => item.id !== t.id))}
+                      onClick={async () => {
+                        if (window.confirm('Hapus transaksi ini?')) {
+                          const { error } = await supabase.from('transactions').delete().eq('id', t.id);
+                          if (error) alert('Gagal hapus: ' + error.message);
+                          else fetchData();
+                        }
+                      }}
                       className="w-10 flex items-center justify-center py-2 bg-red-50 text-red-500 rounded-xl"
                     >
                       <Trash2 size={14} />
@@ -1293,11 +1347,16 @@ function SendIcon() {
                 <div className="bg-red-50 p-4 rounded-2xl border border-red-100">
                   <p className="text-[10px] md:text-xs text-red-600 font-bold mb-3 uppercase tracking-tight">Hanya menghapus riwayat transaksi, data produk tetap aman.</p>
                   <button 
-                    onClick={() => {
+                    onClick={async () => {
                       if (window.confirm('Hapus SEMUA riwayat transaksi? Tindakan ini tidak bisa dibatalkan.')) {
                         if (window.confirm('APAKAH ANDA YAKIN? Klik OK untuk menghapus.')) {
-                          setTransactions([]);
-                          alert('Riwayat transaksi telah dibersihkan!');
+                          const { error } = await supabase.from('transactions').delete().neq('id', 0); // Delete all
+                          if (error) alert('Gagal hapus: ' + error.message);
+                          else {
+                            setTransactions([]);
+                            alert('Riwayat transaksi telah dibersihkan!');
+                            fetchData();
+                          }
                         }
                       }
                     }}
