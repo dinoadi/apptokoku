@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { format, subDays, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
+import { id } from 'date-fns/locale';
 
 const INITIAL_PRODUCTS = [
   { id: 1, name: 'Daster Bali Motif Bunga', category: 'Daster Bali', costPrice: 35000, sellingPrice: 55000, stock: 25, sku: 'DB-001', variants: 'Merah, Biru, Hijau' },
@@ -116,7 +117,13 @@ function AppContent() {
       const { data: settsData } = await supabase.from('settings').select('*').single();
       
       if (settsData) {
-        setSettings(settsData);
+        setSettings(prev => ({
+          ...prev,
+          storeName: settsData.store_name || prev.storeName,
+          address: settsData.address || prev.address,
+          phone: settsData.phone || prev.phone,
+          receiptFooter: settsData.receipt_footer || prev.receiptFooter
+        }));
         if (settsData.categories && Array.isArray(settsData.categories)) {
           // Merge settings categories with product categories
           settsData.categories.forEach(c => productCategories.add(c));
@@ -213,10 +220,15 @@ function AppContent() {
 
   const handleSaveSettings = async () => {
     if (window.confirm('Simpan perubahan pengaturan?')) {
-      const { error } = await supabase.from('settings').update({
-        ...localSettings,
+      const dbSettings = {
+        store_name: localSettings.storeName,
+        address: localSettings.address,
+        phone: localSettings.phone,
+        receipt_footer: localSettings.receiptFooter,
         categories: localCategories
-      }).eq('id', 1);
+      };
+
+      const { error } = await supabase.from('settings').update(dbSettings).eq('id', 1);
       
       if (error) {
         alert('Gagal simpan: ' + error.message);
@@ -564,12 +576,12 @@ function SendIcon() {
           </div>
           <div>
             <span className="font-black text-xl tracking-tighter text-pink-500 block leading-none">{settings.storeName}</span>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{format(currentTime, 'dd MMM yyyy')}</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{format(currentTime, 'dd MMM yyyy', { locale: id })}</span>
           </div>
         </div>
         <div className="flex items-center gap-4">
             <div className="hidden md:flex flex-col items-end mr-2">
-                <span className="text-xs font-black text-slate-700">{format(currentTime, 'EEEE, HH:mm:ss')}</span>
+                <span className="text-xs font-black text-slate-700">{format(currentTime, 'EEEE, HH:mm:ss', { locale: id })}</span>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Waktu Server</span>
             </div>
             <button 
@@ -588,9 +600,15 @@ function SendIcon() {
         {/* Dashboard Tab */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 md:pb-0">
-            <header>
-              <h2 className="text-2xl md:text-3xl font-black tracking-tight text-slate-800">Halo, Admin! 👋</h2>
-              <p className="text-xs md:text-sm text-slate-500 font-medium tracking-wide uppercase">Ringkasan performa {settings.storeName}</p>
+            <header className="flex flex-col md:flex-row md:items-end justify-between gap-2">
+              <div>
+                <h2 className="text-3xl md:text-4xl font-black tracking-tighter text-slate-800 leading-tight">
+                  {settings.storeName}
+                </h2>
+                <p className="text-xs md:text-sm text-slate-500 font-bold uppercase tracking-widest mt-1">
+                  Halo Admin, berikut ringkasan performa hari ini
+                </p>
+              </div>
             </header>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
@@ -1115,7 +1133,7 @@ function SendIcon() {
                   @page { margin: 0; size: auto; }
                   body * { visibility: hidden; }
                   .print-area, .print-area * { visibility: visible; }
-                  .print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+                  .print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; background-color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                   .no-print { display: none !important; }
                 }
               `}</style>
@@ -1138,7 +1156,7 @@ function SendIcon() {
                   </div>
                   <div className="flex justify-between text-xs font-bold text-slate-600 uppercase">
                     <span>Waktu</span>
-                    <span className="text-slate-900">{format(new Date(lastReceipt.date), 'dd/MM/yy HH:mm')}</span>
+                    <span className="text-slate-900">{format(new Date(lastReceipt.date), 'dd MMM yyyy, HH:mm', { locale: id })}</span>
                   </div>
                   <div className="flex justify-between text-xs font-bold text-slate-600 uppercase">
                     <span>Kasir</span>
