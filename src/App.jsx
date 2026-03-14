@@ -606,7 +606,7 @@ function SendIcon() {
                   {settings.storeName}
                 </h2>
                 <p className="text-xs md:text-sm text-slate-500 font-bold uppercase tracking-widest mt-1">
-                  Halo Admin, berikut ringkasan performa hari ini
+                  Halo Awa Istriku yang Cantik ❤️, berikut ringkasan performa hari ini
                 </p>
               </div>
             </header>
