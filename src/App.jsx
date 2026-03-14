@@ -749,7 +749,7 @@ function SendIcon() {
         )}
 
         {isAddProductOpen && (
-          <div className="fixed inset-0 z-[70] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="fixed inset-0 z-[120] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto pb-24 md:pb-4">
             <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 md:p-8 space-y-4 my-auto">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-xl md:text-2xl font-black text-slate-800">{editingProduct ? 'Edit Produk' : 'Tambah Produk'}</h3>
@@ -1750,7 +1750,7 @@ function SendIcon() {
 
       {/* Expense Modal - Global */}
       {isExpenseModalOpen && (
-              <div className="fixed inset-0 z-[120] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+              <div className="fixed inset-0 z-[120] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto pb-24 md:pb-4">
                 <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 md:p-8 space-y-4 my-auto">
                   <div className="flex justify-between items-center mb-2">
                     <h3 className="text-xl md:text-2xl font-black text-slate-800">Catat Pengeluaran</h3>
